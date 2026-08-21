@@ -36,7 +36,7 @@ export default function NameGate({ participants, identity, onSubmit }) {
         <h1>Diswod</h1>
         <p className="gate-lead">Vampiro: la Mascarada — V20</p>
         <p className="gate-copy">
-          Entra en la crónica. Elige tu nombre entre los presentes o preséntate ante la mesa.
+          Entra en la crónica. Hay 4 asientos en la mesa. Elige tu nombre o preséntate.
         </p>
 
         {participants.length > 0 && (

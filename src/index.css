@@ -84,8 +84,47 @@ code {
 .app > main {
   height: calc(100% - 138px);
   display: grid;
-  grid-template-columns: 1fr 260px;
+  grid-template-columns: 1fr 300px;
   min-height: 0;
+}
+
+.table-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: #070303;
+}
+.table-stage canvas { display: block; width: 100%; height: 100%; }
+.table-note {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  margin: 0;
+  color: var(--gold);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.seat-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #100606ee;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: Cinzel, serif;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.seat-tag.is-self { border-color: var(--gold); color: var(--gold-soft); }
+.empty-seat { color: var(--muted); font-style: italic; }
+.occupancy {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 12px;
+  color: var(--gold);
 }
 
 .gamelog, .players {
@@ -332,18 +371,18 @@ code {
 
 @media (max-width: 800px) {
   .app > main { grid-template-columns: 1fr; }
-  .players {
+  .gamelog {
     display: none;
     position: absolute;
     right: 8px;
     top: 62px;
-    width: min(260px, 86vw);
+    width: min(320px, 92vw);
     height: auto;
-    max-height: 60%;
+    max-height: 62%;
     border: 1px solid var(--line);
     z-index: 4;
   }
-  .show-players .players { display: flex; }
+  .show-log .gamelog { display: flex; }
   .players-toggle { display: inline-flex; }
   .room { display: none; }
 }

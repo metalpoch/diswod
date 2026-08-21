@@ -1,18 +1,34 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import DicePanel from './components/DicePanel'
 import GameLog from './components/GameLog'
 import Help from './components/Help'
 import NameGate from './components/NameGate'
-import PlayerList from './components/PlayerList'
 import { useActivity } from './hooks/useActivity'
 import { useGameLog } from './hooks/useGameLog'
 import { executeParsed, formatResultLine } from './lib/dice'
+import { claimSeat, seatedPlayers } from './lib/seats'
+
+const Table3D = lazy(() => import('./components/Table3D'))
 
 export default function App() {
   const activity = useActivity()
   const log = useGameLog(activity.roomId, activity.identity)
   const [toast, setToast] = useState('')
-  const [showPlayers, setShowPlayers] = useState(false)
+  const [showLog, setShowLog] = useState(false)
+
+  const players = useMemo(
+    () => activity.mergePlayers(log.remotes),
+    [activity.participants, activity.identity, log.remotes],
+  )
+  const seats = useMemo(() => seatedPlayers(players), [players])
+  const setIdentity = activity.setIdentity
+
+  useEffect(() => {
+    const me = activity.identity
+    if (!me) return
+    const next = claimSeat(me, log.remotes)
+    if (next !== me.seat) setIdentity({ ...me, seat: next })
+  }, [activity.identity, log.remotes, setIdentity])
 
   const lastCommands = useMemo(() => {
     const mine = log.entries
@@ -27,7 +43,6 @@ export default function App() {
   }
 
   const onRoll = async (parsed) => {
-    await new Promise((resolve) => window.setTimeout(resolve, 380))
     const result = executeParsed(parsed)
     log.addEntry({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -49,6 +64,10 @@ export default function App() {
     )
   }
 
+  const taken = seats.filter(Boolean).length
+  const localSeat = seats.findIndex((p) => p?.id === activity.identity.id)
+  const mySeat = localSeat >= 0 ? localSeat : activity.identity.seat
+
   return (
     <div className="app">
       <div className="veil" />
@@ -61,6 +80,7 @@ export default function App() {
           </div>
         </div>
         <div className="top-actions">
+          <span className="occupancy">{taken}/4 en mesa</span>
           <button
             type="button"
             className="room"
@@ -72,19 +92,22 @@ export default function App() {
             Sala {activity.roomId}
           </button>
           <Help />
-          <button type="button" className="ghost players-toggle" onClick={() => setShowPlayers((v) => !v)}>
-            Jugadores
+          <button type="button" className="ghost players-toggle" onClick={() => setShowLog((v) => !v)}>
+            Gamelog
           </button>
         </div>
       </header>
 
-      <main className={showPlayers ? 'show-players' : ''}>
+      <main className={showLog ? 'show-log' : ''}>
+        <Suspense fallback={<div className="table-stage" />}>
+          <Table3D
+            seats={seats}
+            entries={log.entries}
+            localId={activity.identity.id}
+            localSeat={mySeat}
+          />
+        </Suspense>
         <GameLog entries={log.entries} onCopy={() => flash('Historial copiado')} />
-        <PlayerList
-          players={activity.mergePlayers(log.remotes)}
-          identity={activity.identity}
-          peers={log.peers}
-        />
       </main>
 
       <DicePanel onRoll={onRoll} lastCommands={lastCommands} />
