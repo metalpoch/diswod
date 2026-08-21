@@ -1,0 +1,26 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #070404;
+  color: #eadfcd;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.55;
+}
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+h1, h2 { font-family: "Palatino Linotype", Palatino, serif; color: #c9a227; }
+h1 { letter-spacing: 0.06em; }
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #c42323;
+  font-size: 12px;
+}
+.meta, .nav { color: #9b8d7a; font-size: 14px; }
+a { color: #e6c35c; }
+ul { padding-left: 1.2em; }
+code { color: #e6c35c; }

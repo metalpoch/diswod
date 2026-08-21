@@ -1,7 +1,11 @@
+import { supabase } from './supabase'
+
 const AVATAR = (id, avatar) =>
   avatar
     ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png?size=64`
     : null
+
+const CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || ''
 
 export function isLikelyEmbedded() {
   try {
@@ -64,40 +68,26 @@ export function initials(name) {
   return parts.map((p) => p[0]?.toUpperCase() || '?').join('')
 }
 
-export async function connectDiscord(clientId) {
-  if (!clientId || !isLikelyEmbedded()) return null
-  const { DiscordSDK } = await import('@discord/embedded-app-sdk')
-  const sdk = new DiscordSDK(clientId)
-  await Promise.race([
-    sdk.ready(),
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Discord SDK timeout')), 2500)
-    }),
-  ])
-  return sdk
+export function mapParticipant(p) {
+  const id = p.id || p.user?.id
+  return {
+    id,
+    name: p.nickname || p.username || p.user?.global_name || p.user?.username || 'Kindred',
+    avatar: AVATAR(id, p.avatar || p.user?.avatar),
+    source: 'discord',
+  }
 }
 
 export async function readParticipants(sdk) {
   if (!sdk) return []
   const { participants } = await sdk.commands.getInstanceConnectedParticipants()
-  return (participants || []).map((p) => ({
-    id: p.id || p.user?.id,
-    name: p.nickname || p.username || p.user?.username || 'Kindred',
-    avatar: AVATAR(p.id || p.user?.id, p.avatar || p.user?.avatar),
-    source: 'discord',
-  }))
+  return (participants || []).map(mapParticipant).filter((p) => p.id)
 }
 
 export function subscribeParticipants(sdk, onChange) {
   if (!sdk) return () => {}
   const handler = (event) => {
-    const list = (event.participants || []).map((p) => ({
-      id: p.id || p.user?.id,
-      name: p.nickname || p.username || p.user?.username || 'Kindred',
-      avatar: AVATAR(p.id || p.user?.id, p.avatar || p.user?.avatar),
-      source: 'discord',
-    }))
-    onChange(list)
+    onChange((event.participants || []).map(mapParticipant).filter((p) => p.id))
   }
   sdk.subscribe('ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE', handler)
   return () => {
@@ -107,4 +97,58 @@ export function subscribeParticipants(sdk, onChange) {
       /* ignore */
     }
   }
+}
+
+async function exchangeDiscordCode(code) {
+  if (!supabase) throw new Error('no supabase')
+  const { data, error } = await supabase.functions.invoke('discord-token', { body: { code } })
+  if (error || !data?.access_token) throw error || new Error('token')
+  return data.access_token
+}
+
+export async function authenticateDiscordUser(sdk, clientId) {
+  const { code } = await sdk.commands.authorize({
+    client_id: clientId,
+    response_type: 'code',
+    prompt: 'none',
+    scope: ['identify', 'guilds', 'rpc.activities.write'],
+  })
+  const accessToken = await exchangeDiscordCode(code)
+  const auth = await sdk.commands.authenticate({ access_token: accessToken })
+  const user = auth.user
+  return {
+    id: user.id,
+    name: user.global_name || user.username,
+    avatar: AVATAR(user.id, user.avatar),
+    color: colorFromName(user.global_name || user.username),
+    source: 'discord',
+  }
+}
+
+export async function connectDiscord(clientId = CLIENT_ID) {
+  if (!clientId || !isLikelyEmbedded()) return { sdk: null, user: null }
+  const mod = await import('@discord/embedded-app-sdk')
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
+  if (supabaseUrl) {
+    try {
+      const host = new URL(supabaseUrl).host
+      mod.patchUrlMappings([{ prefix: '/supabase', target: host }])
+    } catch {
+      /* ignore */
+    }
+  }
+  const sdk = new mod.DiscordSDK(clientId)
+  await Promise.race([
+    sdk.ready(),
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Discord SDK timeout')), 8000)
+    }),
+  ])
+  let user = null
+  try {
+    user = await authenticateDiscordUser(sdk, clientId)
+  } catch {
+    user = null
+  }
+  return { sdk, user }
 }

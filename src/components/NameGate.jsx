@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { colorFromName, randomRoom } from '../lib/discord'
 import Avatar from './Avatar'
 
-export default function NameGate({ participants, identity, onSubmit }) {
+export default function NameGate({ participants, identity, onSubmit, embedded }) {
   const [name, setName] = useState(identity?.name || '')
   const [selected, setSelected] = useState(identity?.id || '')
 
@@ -26,6 +26,7 @@ export default function NameGate({ participants, identity, onSubmit }) {
       name: fromList?.name || trimmed,
       avatar: fromList?.avatar || null,
       color: colorFromName(fromList?.name || trimmed),
+      source: fromList ? 'discord' : identity?.source || 'local',
     })
   }
 
@@ -36,7 +37,9 @@ export default function NameGate({ participants, identity, onSubmit }) {
         <h1>Diswod</h1>
         <p className="gate-lead">Vampiro: la Mascarada — V20</p>
         <p className="gate-copy">
-          Entra en la crónica. Hay 4 asientos en la mesa. Elige tu nombre o preséntate.
+          {embedded
+            ? 'Elige tu usuario de Discord en esta Activity.'
+            : 'Entra en la crónica. El Narrador te pasará un código de mesa.'}
         </p>
 
         {participants.length > 0 && (
@@ -56,19 +59,23 @@ export default function NameGate({ participants, identity, onSubmit }) {
         )}
 
         <form onSubmit={confirm}>
-          <label htmlFor="kindred-name">Nombre en mesa</label>
-          <input
-            id="kindred-name"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value)
-              setSelected('')
-            }}
-            placeholder="Ej. Keiber"
-            maxLength={32}
-            autoFocus
-          />
-          <button type="submit" className="primary" disabled={!name.trim()}>
+          {!embedded ? (
+            <>
+              <label htmlFor="kindred-name">Nombre en mesa</label>
+              <input
+                id="kindred-name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  setSelected('')
+                }}
+                placeholder="Ej. Keiber"
+                maxLength={32}
+                autoFocus
+              />
+            </>
+          ) : null}
+          <button type="submit" className="primary" disabled={embedded ? !selected : !name.trim()}>
             Entrar en la crónica
           </button>
         </form>

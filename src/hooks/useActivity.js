@@ -10,8 +10,6 @@ import {
   subscribeParticipants,
 } from '../lib/discord'
 
-const CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || ''
-
 export function useActivity() {
   const [sdk, setSdk] = useState(null)
   const [status, setStatus] = useState('boot')
@@ -26,7 +24,7 @@ export function useActivity() {
 
     async function boot() {
       try {
-        const next = await connectDiscord(CLIENT_ID)
+        const { sdk: next, user } = await connectDiscord()
         if (cancelled) return
         if (!next) {
           if (!roomFromLocation()) {
@@ -45,6 +43,10 @@ export function useActivity() {
         const people = await readParticipants(next)
         if (!cancelled) setParticipants(people)
         unsub = subscribeParticipants(next, setParticipants)
+        if (user) {
+          saveIdentity(user)
+          setIdentityState(user)
+        }
         setStatus('discord')
       } catch {
         if (cancelled) return

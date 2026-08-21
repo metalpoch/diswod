@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Política de Privacidad — Diswod</title>
+    <link rel="stylesheet" href="/legal.css" />
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Diswod</p>
+      <h1>Política de Privacidad</h1>
+      <p class="meta">Última actualización: 21 de agosto de 2026</p>
+
+      <p>
+        Esta política describe qué datos trata Diswod
+        (<a href="https://diswod.keiberup-dev.workers.dev/">diswod.keiberup-dev.workers.dev</a>
+        y la Activity de Discord asociada).
+      </p>
+
+      <h2>1. Quién opera</h2>
+      <p>
+        Diswod lo opera quien publica esta instancia (Keiber / keiberup-dev).
+        No hay un servidor propio de cuentas: la app es frontend.
+      </p>
+
+      <h2>2. Datos que se usan</h2>
+      <ul>
+        <li>
+          <strong>Nombre de mesa</strong> que escribes al entrar. Se guarda en tu
+          <em>localStorage</em> del navegador para no pedírtelo cada vez.
+        </li>
+        <li>
+          <strong>Identidad de Discord</strong> (id, nombre, avatar) solo si abres la app
+          como Activity y Discord nos la facilita. Se usa para la lista de jugadores y el log.
+        </li>
+        <li>
+          <strong>Comandos y resultados de dados</strong> de la sala. Se sincronizan con
+          los demás clientes de esa sala (WebRTC / señalización pública de Yjs) para que
+          todos vean el mismo historial y la mesa 3D.
+        </li>
+        <li>
+          <strong>Código de sala</strong> en la URL (<code>?room=</code>) o el
+          <em>instanceId</em> de Discord, para unir a la misma mesa.
+        </li>
+      </ul>
+      <p>No pedimos correo, contraseña ni método de pago. No creamos cuentas propias.</p>
+
+      <h2>3. Dónde se guarda</h2>
+      <ul>
+        <li>En tu dispositivo: nombre, asiento e identidad local.</li>
+        <li>Entre jugadores de la sala: historial y presencia, mientras la sesión está activa.</li>
+        <li>No operamos una base de datos central de partidas ni perfiles.</li>
+      </ul>
+      <p>
+        Los servidores de señalización WebRTC de terceros (p. ej. signaling de Yjs) pueden
+        ver metadatos de conexión (que hay peers en una sala), no el contenido de tu cuenta Discord.
+      </p>
+
+      <h2>4. Discord</h2>
+      <p>
+        Si usas la Activity, Discord trata tus datos según su
+        <a href="https://discord.com/privacy">Política de Privacidad</a>.
+        Diswod no vende datos a anunciantes.
+      </p>
+
+      <h2>5. Cookies</h2>
+      <p>
+        No usamos cookies de analítica ni publicidad. Sí usamos almacenamiento local del
+        navegador para preferencias de mesa.
+      </p>
+
+      <h2>6. Menores</h2>
+      <p>
+        Diswod está pensado para mesas de rol. Si Discord exige una edad mínima para
+        usar Activities, esa misma edad aplica aquí.
+      </p>
+
+      <h2>7. Conservación y borrado</h2>
+      <p>
+        Puedes borrar los datos locales limpiando el almacenamiento del sitio en tu navegador.
+        El historial en memoria de una sala desaparece cuando no queda nadie conectado
+        (no hay persistencia en servidor propio).
+      </p>
+
+      <h2>8. Tus derechos</h2>
+      <p>
+        Puedes dejar de usar la app en cualquier momento. Para preguntas sobre privacidad,
+        contacta al operador de esta instancia (Keiber / keiberup-dev).
+      </p>
+
+      <h2>9. Cambios</h2>
+      <p>Si cambia esta política, actualizaremos la fecha del encabezado.</p>
+
+      <p class="nav">
+        <a href="/">Volver a Diswod</a>
+        ·
+        <a href="/tos.html">Condiciones del Servicio</a>
+      </p>
+    </main>
+  </body>
+</html>

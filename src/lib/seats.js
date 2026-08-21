@@ -40,6 +40,25 @@ export function seatedPlayers(players) {
   return [0, 1, 2, 3].map((i) => claimed.get(i) || null)
 }
 
+export function seatedFromMembers(members) {
+  const seated = (members || []).filter((m) => m.role === 'dm' || m.role === 'player')
+  const dm = seated.filter((m) => m.role === 'dm')
+  const rest = seated.filter((m) => m.role !== 'dm')
+  const ordered = [...dm, ...rest]
+  return [0, 1, 2, 3].map((i) => {
+    const m = ordered[i]
+    if (!m) return null
+    return {
+      id: m.player_id || m.id,
+      name: m.player_name || m.name,
+      avatar: m.avatar || null,
+      role: m.role,
+      seat: i,
+      self: Boolean(m.self),
+    }
+  })
+}
+
 export function hashSeed(value) {
   const text = String(value)
   let h = 2166136261
