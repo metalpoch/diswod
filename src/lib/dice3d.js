@@ -128,7 +128,7 @@ export function faceNumberTexture(value, style) {
   return makeTexture(key, (ctx) => {
     ctx.fillStyle = styleBody(style)
     ctx.fillRect(0, 0, 128, 128)
-    ctx.font = '700 58px Cinzel, serif'
+    ctx.font = faceFont(value)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = 'rgba(0,0,0,0.3)'
@@ -145,11 +145,19 @@ export function faceGlowTexture(value) {
   return makeTexture(key, (ctx) => {
     ctx.fillStyle = '#000'
     ctx.fillRect(0, 0, 128, 128)
-    ctx.font = '700 58px Cinzel, serif'
+    ctx.font = faceFont(value)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#fff'
     ctx.fillText(String(value), 64, 68)
+  })
+}
+
+export function plainFaceTexture(style) {
+  const key = `plain-${style}`
+  return makeTexture(key, (ctx) => {
+    ctx.fillStyle = styleBody(style)
+    ctx.fillRect(0, 0, 128, 128)
   })
 }
 
@@ -187,6 +195,12 @@ function rawGeometry(sides) {
   if (sides === 12) return new THREE.DodecahedronGeometry(1)
   if (sides === 20) return new THREE.IcosahedronGeometry(1)
   return null
+}
+
+function faceFont(value) {
+  if (value > 99) return '700 34px Cinzel, serif'
+  if (value > 9) return '700 44px Cinzel, serif'
+  return '700 58px Cinzel, serif'
 }
 
 const V = new THREE.Vector3()
@@ -258,6 +272,17 @@ function assignFaceUV(face, pos, uvs, normalsArr) {
 export function faceDataFor(sides) {
   if (faceCache.has(sides)) return faceCache.get(sides)
   const geo = rawGeometry(sides)
+  if (!geo) {
+    const data = {
+      sides,
+      geometry: new THREE.BoxGeometry(0.42, 0.42, 0.42),
+      valueByFace: null,
+      normals: [new THREE.Vector3(0, 1, 0)],
+      generic: true,
+    }
+    faceCache.set(sides, data)
+    return data
+  }
   if (sides !== 10) geo.scale(0.3, 0.3, 0.3)
   const pos = geo.getAttribute('position')
   const triCount = pos.count / 3
@@ -321,6 +346,7 @@ export function faceDataFor(sides) {
     geometry: geo,
     valueByFace: faces.map((f) => f.value),
     normals: faces.map((f) => f.normal),
+    generic: false,
   }
   faceCache.set(sides, data)
   return data
@@ -339,6 +365,7 @@ export function quatForValue(sides, value) {
     return new THREE.Quaternion().setFromUnitVectors((normals[value] || normals[1]).clone().normalize(), UP)
   }
   const data = faceDataFor(sides)
+  if (data.generic) return new THREE.Quaternion()
   const faceIdx = data.valueByFace.indexOf(value)
   const normal = data.normals[faceIdx] || data.normals[0]
   return new THREE.Quaternion().setFromUnitVectors(normal.clone().normalize(), UP)

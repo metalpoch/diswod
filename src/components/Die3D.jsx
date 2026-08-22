@@ -7,6 +7,7 @@ import {
   faceNumberTexture,
   pipGlowTexture,
   pipTexture,
+  plainFaceTexture,
   styleMaps,
 } from '../lib/dice3d'
 
@@ -48,14 +49,37 @@ function D6({ style }) {
   )
 }
 
-function Faces({ sides, style }) {
+function Faces({ sides, style, value }) {
   const data = useMemo(() => faceDataFor(sides), [sides])
-  const mats = useMemo(
-    () => data.valueByFace.map((value, i) => {
-      const props = faceMaterial(value, style)
+  const mats = useMemo(() => {
+    if (data.generic) {
+      const top = faceMaterial(value, style)
+      const plain = {
+        map: plainFaceTexture(style),
+        roughness: top.roughness,
+        metalness: top.metalness,
+      }
+      return [0, 1, 2, 3, 4, 5].map((i) => {
+        const props = i === 2 ? top : plain
+        return (
+          <meshStandardMaterial
+            key={i}
+            attach={`material-${i}`}
+            map={props.map}
+            emissiveMap={props.emissiveMap}
+            emissive={props.emissive}
+            emissiveIntensity={props.emissiveIntensity}
+            roughness={props.roughness}
+            metalness={props.metalness}
+          />
+        )
+      })
+    }
+    return data.valueByFace.map((faceValue, i) => {
+      const props = faceMaterial(faceValue, style)
       return (
         <meshStandardMaterial
-          key={`${value}-${i}`}
+          key={`${faceValue}-${i}`}
           attach={`material-${i}`}
           map={props.map}
           emissiveMap={props.emissiveMap}
@@ -65,9 +89,8 @@ function Faces({ sides, style }) {
           metalness={props.metalness}
         />
       )
-    }),
-    [data, style],
-  )
+    })
+  }, [data, style, value])
   return (
     <mesh geometry={data.geometry} castShadow receiveShadow>
       {mats}
@@ -99,7 +122,7 @@ export default function Die3D({ die, play }) {
 
   return (
     <group ref={ref}>
-      {die.sides === 6 ? <D6 style={die.style} /> : <Faces sides={die.sides} style={die.style} />}
+      {die.sides === 6 ? <D6 style={die.style} /> : <Faces sides={die.sides} style={die.style} value={die.value} />}
     </group>
   )
 }
