@@ -97,7 +97,7 @@ function Faces({ sides, style, value }) {
   )
 }
 
-export default function Die3D({ die, play }) {
+export default function Die3D({ die, play, showLabels }) {
   const ref = useRef()
   const [done, setDone] = useState(!play)
   const born = useRef(performance.now() + die.delay * 1000)
@@ -131,7 +131,7 @@ export default function Die3D({ die, play }) {
   return (
     <group ref={ref}>
       {die.sides === 6 ? <D6 style={die.style} /> : <Faces sides={die.sides} style={die.style} value={die.value} />}
-      {done && (
+      {done && showLabels && (
         <Html
           position={[0, 0.55, 0]}
           center

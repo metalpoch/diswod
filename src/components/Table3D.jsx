@@ -121,7 +121,7 @@ function SeatTag({ player, seat, self }) {
   )
 }
 
-function Scene({ seats, rolls, localSeat }) {
+function Scene({ seats, rolls, localSeat, showLabels }) {
   return (
     <>
       <color attach="background" args={['#070303']} />
@@ -145,7 +145,7 @@ function Scene({ seats, rolls, localSeat }) {
       {rolls.map((pack) => (
         <group key={pack.id}>
           {pack.dice.map((die, i) => (
-            <Die3D key={`${pack.id}-${i}`} die={die} play={pack.play} />
+            <Die3D key={`${pack.id}-${i}`} die={die} play={pack.play} showLabels={showLabels} />
           ))}
         </group>
       ))}
@@ -153,7 +153,7 @@ function Scene({ seats, rolls, localSeat }) {
   )
 }
 
-export default function Table3D({ seats, entries, localId, localSeat }) {
+export default function Table3D({ seats, entries, localId, localSeat, showLabels }) {
   const rolls = useMemo(() => {
     const latest = new Map()
     for (const entry of entries) {
@@ -179,7 +179,7 @@ export default function Table3D({ seats, entries, localId, localSeat }) {
         camera={{ fov: 36, position: SEATS[localSeat ?? 0].camera, near: 0.1, far: 60 }}
         gl={{ antialias: true, alpha: false }}
       >
-        <Scene seats={seats} rolls={rolls} localSeat={localSeat} />
+        <Scene seats={seats} rolls={rolls} localSeat={localSeat} showLabels={showLabels} />
       </Canvas>
       {localSeat == null && localId ? <p className="table-note">Mesa llena · ves la crónica como espectador</p> : null}
     </div>

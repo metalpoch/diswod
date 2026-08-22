@@ -45,9 +45,11 @@ No existe "nombre de jugador" global. El modelo actual:
 
 ## Reglas de mesa
 
-- Las tiradas se bloquean (`DicePanel` disabled) si el **Narrador no está online** (detección en `App.jsx`, `dmOnline`: si el Narrador está en `log.remotes` — presencia Yjs — **o** en `activity.participants` — participantes del SDK de Discord, la vía que funciona dentro del sandbox) o si **te silenciaron** (`mesa_members.muted`). Notas y pizarra siguen editables.
+- Las tiradas solo se bloquean si **te silenciaron** (`mesa_members.muted`). Ya NO se bloquean por presencia del Narrador.
+- En su lugar, para proteger la partida, la mesa **solo es accesible cuando el Narrador está presente**: si no eres el Narrador y `waitingForDm` es true (evidencia positiva de ausencia: `activity.participants` no vacío y sin el `dmId`), se muestra la pantalla "Esperando al Narrador". El `dmId` se deriva del miembro actual con rol `dm` (`party.members`), con fallback a `mesas.dm_id`. Si `participants` está vacío (desconocido), NO se bloquea (leniente).
 - El Narrador silencia/activa jugadores en la pestaña Mesa (`MembersPanel` → `setMemberMuted`).
-- **El sandbox de Discord bloquea y-webrtc** (los signaling servers `signaling.yjs.dev`/heroku no están en URL Mappings): la presencia Yjs no sincroniza ahí dentro. Por eso `dmOnline` también mira `activity.participants` (eventos nativos `ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE`, funcionan en el sandbox).
+- **Los números flotantes de los dados están ocultos por defecto** (`showDieLabels` false); hay un botón "Números ON/OFF" en el topbar para mostrarlos. El código de invitación se copia con un clic desde el botón "Código XXXXXX" del topbar (sin pasar por la pestaña Mesa).
+- **El sandbox de Discord bloquea y-webrtc** (los signaling servers `signaling.yjs.dev`/heroku no están en URL Mappings): la presencia Yjs no sincroniza ahí dentro. Por eso la presencia del Narrador usa `activity.participants` (eventos nativos `ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE`, funcionan en el sandbox).
 - **Supabase Realtime tampoco es fiable en el sandbox** (el WebSocket puede no llegar por el proxy de Discord). Por eso `useGameLog` y `useMembers` hacen **polling REST** cada ~2.5–3 s como fallback (`loadLogSince` con solape de 1 s, `listMembers`). El realtime sigue suscrito como vía rápida cuando funciona. No elimines el polling.
 
 ## Supabase

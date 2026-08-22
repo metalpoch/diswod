@@ -27,6 +27,7 @@ export default function App() {
   const [skipSave, setSkipSave] = useState(false)
   const [toast, setToast] = useState('')
   const [showLog, setShowLog] = useState(false)
+  const [showDieLabels, setShowDieLabels] = useState(false)
   const [tab, setTab] = useState('log')
 
   const persist = persistOn && archive.current && !skipSave
@@ -81,13 +82,22 @@ export default function App() {
 
   const charName = persist.enabled ? party.me?.name || activity.identity?.name : activity.identity?.name
 
-  const dmId = persist.enabled ? archive.current?.dmId : ''
+  const dmId = persist.enabled
+    ? party.members.find((m) => m.role === 'dm')?.player_id || archive.current?.dmId
+    : ''
+  const participants = activity.participants || []
   const dmOnline = !persist.enabled || !dmId
     || activity.identity?.id === dmId
     || log.remotes.some((r) => r.id === dmId)
-    || activity.participants.some((p) => p.id === dmId)
+    || participants.some((p) => p.id === dmId)
   const muted = Boolean(persist.enabled && party.me?.muted)
-  const rollBlocked = muted || !dmOnline
+  const rollBlocked = muted
+  // Solo se bloquea la mesa si hay evidencia positiva de ausencia del Narrador
+  // (participantes del SDK no vacíos y el Narrador no está entre ellos).
+  const waitingForDm = persist.enabled && Boolean(dmId)
+    && activity.identity?.id !== dmId
+    && participants.length > 0
+    && !dmOnline
 
   const onRoll = async (parsed) => {
     const result = executeParsed(parsed)
@@ -171,6 +181,19 @@ export default function App() {
   const localSeat = seats.findIndex((p) => p?.id === activity.identity.id)
   const mySeat = localSeat >= 0 ? localSeat : null
 
+  if (waitingForDm) {
+    return (
+      <div className="waiting">
+        <div className="veil" />
+        <div className="waiting-card">
+          <h2>Esperando al Narrador</h2>
+          <p>La mesa solo está disponible cuando el Narrador está presente.</p>
+          <button type="button" className="ghost" onClick={leaveTable}>Salir de la mesa</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       <div className="veil" />
@@ -210,6 +233,26 @@ export default function App() {
               Sala {activity.roomId}
             </button>
           ) : null}
+          {persist.enabled && archive.current?.inviteCode ? (
+            <button
+              type="button"
+              className="ghost invite"
+              title="Copiar código de invitación"
+              onClick={async () => {
+                const ok = await copyText(archive.current.inviteCode)
+                flash(ok ? 'Código copiado' : 'No se pudo copiar')
+              }}
+            >
+              Código {archive.current.inviteCode}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={showDieLabels ? 'ghost is-on' : 'ghost'}
+            onClick={() => setShowDieLabels((v) => !v)}
+          >
+            Números {showDieLabels ? 'ON' : 'OFF'}
+          </button>
           <NameEdit name={charName} onRename={renameSelf} />
           <button type="button" className="ghost players-toggle" onClick={() => setShowLog((v) => !v)}>
             Panel
@@ -225,6 +268,7 @@ export default function App() {
             entries={log.entries}
             localId={activity.identity.id}
             localSeat={mySeat}
+            showLabels={showDieLabels}
           />
         </Suspense>
         <ChroniclePanel
@@ -270,9 +314,7 @@ export default function App() {
         disabled={rollBlocked}
         reason={muted
           ? 'El Narrador te ha silenciado.'
-          : !dmOnline
-            ? 'El Narrador no está en línea. Las tiradas están en pausa.'
-            : ''}
+          : ''}
         lastCommands={lastCommands}
       />
       {persist.enabled && archive.pendingCharName ? (
