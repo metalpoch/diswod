@@ -7,7 +7,7 @@ const faceCache = new Map()
 let wood = null
 let felt = null
 
-const D10_KITE_VALUES = [1, 2, 3, 4, 5, 10, 9, 8, 7, 6]
+const D10_KITE_VALUES = [1, 2, 3, 4, 5, 7, 6, 10, 9, 8]
 
 export const styleMaps = {
   body: { gold: '#d9b45c', blood: '#8f2424', hit: '#3f7a4e', miss: '#8a7f78', generic: '#efe6d2' },
@@ -131,12 +131,12 @@ export function faceNumberTexture(value, style) {
     ctx.font = faceFont(value)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'
-    for (const [dx, dy] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) {
-      ctx.fillText(String(value), 64 + dx, 64 + dy)
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'
+    for (const [dx, dy] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) {
+      ctx.fillText(String(value), 64 + dx, 68 + dy)
     }
     ctx.fillStyle = styleInk(style)
-    ctx.fillText(String(value), 64, 64)
+    ctx.fillText(String(value), 64, 68)
   })
 }
 
@@ -149,7 +149,7 @@ export function faceGlowTexture(value) {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#fff'
-    ctx.fillText(String(value), 64, 64)
+    ctx.fillText(String(value), 64, 68)
   })
 }
 
@@ -167,31 +167,39 @@ export function labelTexture(value, style) {
     ctx.clearRect(0, 0, 128, 128)
     ctx.fillStyle = styleBody(style)
     ctx.beginPath()
-    ctx.roundRect(6, 16, 116, 96, 16)
+    ctx.roundRect(10, 10, 108, 108, 20)
     ctx.fill()
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)'
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'
     ctx.lineWidth = 4
     ctx.stroke()
-    ctx.font = labelFont(value)
+    ctx.font = faceFont(value)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = styleInk(style)
-    ctx.fillText(String(value), 64, 68)
+    ctx.fillText(String(value), 64, 70)
   })
 }
 
 function createD10Geometry() {
+  const h = Math.tan(Math.PI / 10) ** 2
   const verts = [[0, 0, 1], [0, 0, -1]]
   for (let i = 0; i < 10; i += 1) {
     const b = (i * Math.PI * 2) / 10
-    verts.push([Math.cos(b) * 0.78, Math.sin(b) * 0.78, 0.38 * (i % 2 ? 1 : -1)])
+    verts.push([Math.cos(b), Math.sin(b), h * (i % 2 ? 1 : -1)])
   }
-  const faces = [
-    [0, 2, 3], [0, 3, 4], [0, 4, 5], [0, 5, 6], [0, 6, 7],
-    [0, 7, 8], [0, 8, 9], [0, 9, 10], [0, 10, 11], [0, 11, 2],
-    [1, 3, 2], [1, 4, 3], [1, 5, 4], [1, 6, 5], [1, 7, 6],
-    [1, 8, 7], [1, 9, 8], [1, 10, 9], [1, 11, 10], [1, 2, 11],
-  ]
+  const faces = []
+  for (let i = 0; i < 5; i += 1) {
+    const r0 = 2 + ((2 * i) % 10)
+    const r1 = 2 + ((2 * i + 1) % 10)
+    const r2 = 2 + ((2 * i + 2) % 10)
+    faces.push([0, r0, r1], [0, r1, r2])
+  }
+  for (let i = 0; i < 5; i += 1) {
+    const r1 = 2 + ((2 * i + 1) % 10)
+    const r2 = 2 + ((2 * i + 2) % 10)
+    const r3 = 2 + ((2 * i + 3) % 10)
+    faces.push([1, r1, r2], [1, r2, r3])
+  }
   const positions = []
   for (const face of faces) {
     for (const idx of face) {
@@ -203,7 +211,7 @@ function createD10Geometry() {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geo.computeVertexNormals()
   geo.center()
-  geo.scale(0.34, 0.28, 0.34)
+  geo.scale(0.28, 0.34, 0.28)
   return geo
 }
 
@@ -217,15 +225,9 @@ function rawGeometry(sides) {
 }
 
 function faceFont(value) {
-  if (value > 99) return '800 42px Cinzel, serif'
-  if (value > 9) return '800 54px Cinzel, serif'
-  return '800 68px Cinzel, serif'
-}
-
-function labelFont(value) {
-  if (value > 99) return '800 36px Cinzel, serif'
-  if (value > 9) return '800 46px Cinzel, serif'
-  return '800 58px Cinzel, serif'
+  if (value > 99) return '700 34px Cinzel, serif'
+  if (value > 9) return '700 44px Cinzel, serif'
+  return '700 58px Cinzel, serif'
 }
 
 const V = new THREE.Vector3()
@@ -256,11 +258,17 @@ function assignFaceUV(face, pos, uvs, normalsArr) {
   if (face.tris.length === 2 && keys.length === 4) {
     const shared = keys.filter((k) => byKey.get(k).length === 2)
     const uniq = keys.filter((k) => byKey.get(k).length === 1)
+    const ys = shared.map((k) => {
+      V.fromBufferAttribute(pos, byKey.get(k)[0])
+      return [k, Math.abs(V.y)]
+    })
+    const poleKey = ys[0][1] >= ys[1][1] ? ys[0][0] : ys[1][0]
+    const tipKey = poleKey === ys[0][0] ? ys[1][0] : ys[0][0]
     uvByKey = [
-      [shared[0], [0, 0]],
-      [shared[1], [1, 0]],
-      [uniq[0], [0.5, 1]],
-      [uniq[1], [0.5, 0]],
+      [poleKey, [0.5, 1]],
+      [tipKey, [0.5, 0]],
+      [uniq[0], [0, 0.5]],
+      [uniq[1], [1, 0.5]],
     ]
   } else if (face.tris.length === 1 && keys.length === 3) {
     uvByKey = keys.map((k, i) => [k, i === 0 ? [0.5, 1] : i === 1 ? [0, 0] : [1, 0]])
@@ -328,16 +336,25 @@ export function faceDataFor(sides) {
   const faces = []
   const faceByKey = new Map()
   const triFace = []
-  for (let t = 0; t < triCount; t += 1) {
-    const key = triNormals[t]
-    let face = faceByKey.get(key)
-    if (!face) {
-      face = { tris: [], value: sides === 10 ? D10_KITE_VALUES[faces.length] : faces.length + 1, normal: null }
-      faceByKey.set(key, face)
+  if (sides === 10) {
+    for (let k = 0; k < 10; k += 1) {
+      const face = { tris: [2 * k, 2 * k + 1], value: D10_KITE_VALUES[k], normal: null }
       faces.push(face)
+      triFace.push(face)
+      triFace.push(face)
     }
-    face.tris.push(t)
-    triFace.push(face)
+  } else {
+    for (let t = 0; t < triCount; t += 1) {
+      const key = triNormals[t]
+      let face = faceByKey.get(key)
+      if (!face) {
+        face = { tris: [], value: faces.length + 1, normal: null }
+        faceByKey.set(key, face)
+        faces.push(face)
+      }
+      face.tris.push(t)
+      triFace.push(face)
+    }
   }
   for (const face of faces) {
     n.set(0, 0, 0)
