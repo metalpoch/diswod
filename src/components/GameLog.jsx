@@ -40,16 +40,9 @@ export default function GameLog({ entries, onCopy }) {
             <p>Lanza el primer dado: <code>/r 3d6 acechar a la presa</code></p>
           </div>
         ) : (
-          entries.map((entry, i) => {
-            const prev = entries[i - 1]
-            const split = entry.sessionId && entry.sessionId !== prev?.sessionId
-            return (
-              <div key={entry.id}>
-                {split ? <p className="session-mark">Nueva sesión</p> : null}
-                <LogEntry entry={entry} />
-              </div>
-            )
-          })
+          entries.map((entry) => (
+            <LogEntry key={entry.id} entry={entry} />
+          ))
         )}
       </div>
     </section>

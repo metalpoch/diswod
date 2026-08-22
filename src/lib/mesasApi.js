@@ -234,16 +234,6 @@ export async function setCurrentSession(mesaId, sessionId) {
   return mapMesa(data)
 }
 
-export async function listSessions(mesaId) {
-  const { data, error } = await supabase
-    .from('sessions')
-    .select('*')
-    .eq('mesa_id', mesaId)
-    .order('started_at', { ascending: true })
-  if (error) throw error
-  return data || []
-}
-
 export async function loadLog(mesaId) {
   const { data, error } = await supabase
     .from('log_entries')

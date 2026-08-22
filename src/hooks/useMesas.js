@@ -2,14 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   codeFromLocation,
   createMesa,
-  createSession,
   getMesa,
   joinByCode,
   listMyMesas,
-  listSessions,
   mesaFromLocation,
   persistMesaParam,
-  setCurrentSession,
   setMesaStatus,
 } from '../lib/mesasApi'
 import { cleanError } from '../lib/supabase'
@@ -17,7 +14,6 @@ import { cleanError } from '../lib/supabase'
 export function useMesas(enabled, identity) {
   const [mesas, setMesas] = useState([])
   const [current, setCurrent] = useState(null)
-  const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [pendingCharName, setPendingCharName] = useState(false)
@@ -48,7 +44,6 @@ export function useMesas(enabled, identity) {
         if (found) {
           setCurrent(found)
           persistMesaParam(found.id)
-          setSessions(await listSessions(found.id))
         }
       })
       .catch((err) => setError(cleanError(err)))
@@ -64,7 +59,6 @@ export function useMesas(enabled, identity) {
     const fresh = await getMesa(mesa.id)
     persistMesaParam(fresh.id)
     setCurrent(fresh)
-    setSessions(await listSessions(fresh.id))
   }
 
   const close = () => {
@@ -104,19 +98,9 @@ export function useMesas(enabled, identity) {
     await open(next)
   }
 
-  const newSession = async (title) => {
-    if (!current) return null
-    const session = await createSession(current.id, title)
-    const mesa = await setCurrentSession(current.id, session.id)
-    setCurrent(mesa)
-    setSessions(await listSessions(mesa.id))
-    return session
-  }
-
   return {
     mesas,
     current,
-    sessions,
     loading,
     error,
     setError,
@@ -129,6 +113,5 @@ export function useMesas(enabled, identity) {
     join,
     archive,
     reopen,
-    newSession,
   }
 }

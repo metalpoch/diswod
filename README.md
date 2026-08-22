@@ -22,12 +22,12 @@ Incluye una **mesa 3D** (Three.js) con 4 asientos donde los dados caen y se ven 
 ### Mesas y jugadores
 - Cada mesa tiene un **código de invitación** (p. ej. `K7M2PQ`).
 - Hasta **4 asientos** (Narrador + jugadores). El resto entra como **visitante**.
-- El **Narrador** puede dar/quitar asiento, expulsar y abrir nuevas sesiones.
+- El **Narrador** puede dar/quitar asiento, silenciar y expulsar jugadores.
 - Cualquiera puede **salir** de la mesa.
 - Varias mesas a la vez; archivar y retomar.
 
 ### Persistencia (Supabase)
-- Gamelog por sesión, historial de sesiones.
+- Gamelog persistido entre sesiones de juego.
 - **Bloc de notas** y **pizarra** (trazos) por jugador y mesa.
 - **Borrar mis datos** (anonimiza tiradas y elimina notas/pizarra).
 

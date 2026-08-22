@@ -196,34 +196,18 @@ export default function App() {
               Mesas
             </button>
           ) : null}
-          {persist.enabled && party.isDm ? (
+          {!persist.enabled ? (
             <button
               type="button"
-              className="ghost"
+              className="room"
               onClick={async () => {
-                const n = archive.sessions.length + 1
-                await archive.newSession(`Sesión ${n}`)
-                flash('Nueva sesión abierta')
+                await navigator.clipboard.writeText(window.location.href)
+                flash('Enlace copiado')
               }}
             >
-              Nueva sesión
+              Sala {activity.roomId}
             </button>
           ) : null}
-          <button
-            type="button"
-            className="room"
-            onClick={async () => {
-              const text = persist.enabled && archive.current?.inviteCode
-                ? archive.current.inviteCode
-                : window.location.href
-              await navigator.clipboard.writeText(text)
-              flash(persist.enabled ? 'Código copiado' : 'Enlace copiado')
-            }}
-          >
-            {persist.enabled && archive.current?.inviteCode
-              ? archive.current.inviteCode
-              : `Sala ${activity.roomId}`}
-          </button>
           <NameEdit name={charName} onRename={renameSelf} />
           <button type="button" className="ghost players-toggle" onClick={() => setShowLog((v) => !v)}>
             Panel
