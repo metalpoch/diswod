@@ -10,10 +10,10 @@ let felt = null
 const D10_KITE_VALUES = [1, 2, 3, 4, 5, 7, 6, 10, 9, 8]
 
 export const styleMaps = {
-  body: { gold: '#d9b45c', blood: '#8f2424', hit: '#3f7a4e', miss: '#8a7f78', generic: '#efe6d2' },
-  ink: { gold: '#23190a', blood: '#f3d9d4', hit: '#e7f2e2', miss: '#2b2724', generic: '#3a2c22' },
-  glowColor: { gold: '#e6c35c', blood: '#ff7d70', hit: '#8fe3a2', miss: '#cfc4bd', generic: '#e8d9b8' },
-  emissive: { gold: 0.38, blood: 0.2, hit: 0.16, miss: 0.08, generic: 0.1 },
+  body: { gold: '#d9b45c', blood: '#8f2424', hit: '#3f7a4e', miss: '#8a7f78', generic: '#efe6d2', extra: '#c0b3d6' },
+  ink: { gold: '#23190a', blood: '#f3d9d4', hit: '#e7f2e2', miss: '#2b2724', generic: '#3a2c22', extra: '#241f2e' },
+  glowColor: { gold: '#e6c35c', blood: '#ff7d70', hit: '#8fe3a2', miss: '#cfc4bd', generic: '#e8d9b8', extra: '#d9cff7' },
+  emissive: { gold: 0.38, blood: 0.2, hit: 0.16, miss: 0.08, generic: 0.1, extra: 0.42 },
 }
 
 function styleBody(style) {
@@ -413,6 +413,7 @@ export function quatForValue(sides, value) {
 
 export function dieStyle(die, type) {
   if (type === 'wod') {
+    if (die.exploded) return 'extra'
     if (die.isTen) return 'gold'
     if (die.isOne) return 'blood'
     if (die.success) return 'hit'

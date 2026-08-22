@@ -29,7 +29,7 @@ Flujo de prueba: commit en `dev` → auto-deploy al workers.dev → probar en na
 - `.env` está gitignoreado; plantilla en `.env.example`.
 - Solo se leen vars con prefijo `VITE_` desde el navegador. **Nunca** pongas el client secret de Discord aquí; va en la Edge Function de Supabase (`supabase/functions/discord-token`, secretos `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET`).
 - **El build de Cloudflare NO ve `.env`** (gitignoreado). Las `VITE_` que necesita el build de Workers deben estar como variables de build en el dashboard (Workers Builds → Settings → Variables). Si faltan `VITE_SUPABASE_URL`/`VITE_SUPABASE_PUBLISHABLE_KEY`, la app desplegada arranca con `hasSupabase() === false`: sin mesas, sin bloc de notas ni pizarra (parece "versión vieja", pero es solo falta de env). Verifícalo con: `curl -s https://<worker>/assets/index-*.js | grep -c "kvobnkztrxqilqrhyxbz"` (0 = faltan).
-- `VITE_CHRONICLE_ALLOWLIST` está en `.env` pero **ya no se usa**: el allowlist (`src/lib/allowlist.js`) es código muerto, solo lo referencia su propio test. El acceso ahora es público con códigos de invitación. No lo reintroduzcas ni dependas de él.
+- `VITE_CHRONICLE_ALLOWLIST` **ya no se usa** (no está ni en `.env` ni en `.env.example`): el allowlist (`src/lib/allowlist.js`) es código muerto, solo lo referencia su propio test. El acceso ahora es público con códigos de invitación. No lo reintroduzcas ni dependas de él.
 
 ## Arquitectura
 
@@ -57,7 +57,7 @@ No existe "nombre de jugador" global. El modelo actual:
 ## Reglas de mesa
 
 - Las tiradas solo se bloquean si **te silenciaron** (`mesa_members.muted`). Ya NO se bloquean por presencia del Narrador.
-- En su lugar, para proteger la partida, la mesa **solo es accesible cuando el Narrador está presente**: si no eres el Narrador y `waitingForDm` es true (evidencia positiva de ausencia: `activity.participants` no vacío y sin el `dmId`), se muestra la pantalla "Esperando al Narrador". El `dmId` se deriva del miembro actual con rol `dm` (`party.members`), con fallback a `mesas.dm_id`. Si `participants` está vacío (desconocido), NO se bloquea (leniente).
+- En su lugar, para proteger la partida, la mesa **solo es accesible cuando el Narrador está presente**: si no eres el Narrador y `waitingForDm` es true, se muestra la pantalla "Esperando al Narrador". `waitingForDm` requiere evidencia positiva de ausencia (`participants` no vacío y `!dmOnline`, donde `dmOnline` = tú eres el dm, o el dm está en `log.remotes` [Yjs] o en `activity.participants`). El `dmId` se deriva del miembro con rol `dm` (`party.members`), con fallback a `mesas.dm_id`. Si `participants` está vacío (desconocido), NO se bloquea (leniente).
 - El Narrador silencia/activa jugadores en la pestaña Mesa (`MembersPanel` → `setMemberMuted`).
 - **Los números flotantes de los dados están ocultos por defecto** (`showDieLabels` false); hay un botón "Números ON/OFF" en el topbar para mostrarlos. El código de invitación se copia con un clic desde el botón "Código XXXXXX" del topbar (sin pasar por la pestaña Mesa).
 - **El sandbox de Discord bloquea y-webrtc** (los signaling servers `signaling.yjs.dev`/heroku no están en URL Mappings): la presencia Yjs no sincroniza ahí dentro. Por eso la presencia del Narrador usa `activity.participants` (eventos nativos `ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE`, funcionan en el sandbox).

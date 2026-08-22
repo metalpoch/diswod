@@ -304,7 +304,21 @@ code {
 .die.is-miss { color: #e07a70; border-color: #7a2a24; background: #2a1010; }
 .die.is-one { color: #ffd0cb; border-color: var(--blood-hot); background: #3a1010; }
 .die.is-ten { color: #1a1304; border-color: var(--gold); background: linear-gradient(#f0d060, #c9a227); font-weight: 700; }
-.die.is-extra { box-shadow: 0 0 0 1px #e6c35c55; }
+.die.is-extra {
+  border: 1px dashed var(--gold-soft);
+  box-shadow: 0 0 8px #e6c35c66, inset 0 0 6px #e6c35c33;
+}
+.dice-plus {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  color: var(--gold-soft);
+  border: 1px dashed var(--gold);
+  border-radius: 10px;
+  padding: 3px 7px;
+  margin: 0 2px;
+  background: #221505;
+  white-space: nowrap;
+}
 .die.is-generic { color: var(--gold-soft); border-color: var(--gold); }
 .mod, .total { font-family: "Share Tech Mono", monospace; color: var(--gold); }
 .total { font-size: 20px; margin-left: 6px; }

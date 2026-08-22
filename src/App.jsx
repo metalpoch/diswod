@@ -11,6 +11,7 @@ import { useActivity } from './hooks/useActivity'
 import { useGameLog } from './hooks/useGameLog'
 import { useMembers } from './hooks/useMembers'
 import { useMesas } from './hooks/useMesas'
+import { useMusic } from './hooks/useMusic'
 import { executeParsed, formatResultLine } from './lib/dice'
 import { colorFromName, isLikelyEmbedded } from './lib/discord'
 import { deleteMyData, renameMember } from './lib/mesasApi'
@@ -66,6 +67,8 @@ export default function App() {
     [persist.enabled, party.members, players, activity.identity],
   )
   const setIdentity = activity.setIdentity
+  const othersPresent = players.some((p) => p.id && p.id !== activity.identity?.id)
+  const music = useMusic(othersPresent)
 
   useEffect(() => {
     if (persist.enabled) return
@@ -268,6 +271,16 @@ export default function App() {
           >
             Números {showDieLabels ? 'ON' : 'OFF'}
           </button>
+          {music.ready ? (
+            <button
+              type="button"
+              className={music.muted ? 'ghost' : 'ghost is-on'}
+              onClick={music.toggleMuted}
+              title={music.muted ? 'Activar música de fondo' : 'Silenciar música de fondo'}
+            >
+              ♪ Música {music.muted ? 'OFF' : 'ON'}
+            </button>
+          ) : null}
           <NameEdit name={charName} onRename={renameSelf} />
           {!isMobile ? (
             <button
