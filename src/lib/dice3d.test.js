@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import * as THREE from 'three'
 import { faceDataFor } from './dice3d'
 
 describe('d10 geometry', () => {
@@ -30,5 +31,26 @@ describe('d10 geometry', () => {
     expect(faceDataFor(8).valueByFace).toHaveLength(8)
     expect(faceDataFor(12).valueByFace).toHaveLength(12)
     expect(faceDataFor(20).valueByFace).toHaveLength(20)
+  })
+
+  it('all triangles are wound outward (no backface culling)', () => {
+    const a = new THREE.Vector3()
+    const b = new THREE.Vector3()
+    const c = new THREE.Vector3()
+    const n = new THREE.Vector3()
+    for (const sides of [4, 8, 10, 12, 20]) {
+      const data = faceDataFor(sides)
+      const pos = data.geometry.getAttribute('position')
+      for (const group of data.geometry.groups) {
+        for (let t = group.start / 3; t < (group.start + group.count) / 3; t += 1) {
+          a.fromBufferAttribute(pos, t * 3)
+          b.fromBufferAttribute(pos, t * 3 + 1)
+          c.fromBufferAttribute(pos, t * 3 + 2)
+          n.subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).normalize()
+          const cen = new THREE.Vector3().addVectors(a, b).add(c).multiplyScalar(1 / 3)
+          expect(n.dot(cen)).toBeGreaterThan(0)
+        }
+      }
+    }
   })
 })

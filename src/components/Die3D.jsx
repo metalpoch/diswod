@@ -7,8 +7,6 @@ import {
   faceGlowTexture,
   faceNumberTexture,
   labelTexture,
-  pipGlowTexture,
-  pipTexture,
   plainFaceTexture,
   styleMaps,
 } from '../lib/dice3d'
@@ -34,8 +32,8 @@ function D6({ style }) {
       <meshStandardMaterial
         key={n}
         attach={`material-${[3, 4, 1, 6, 2, 5].indexOf(n)}`}
-        map={pipTexture(n, style)}
-        emissiveMap={pipGlowTexture(n)}
+        map={faceNumberTexture(n, style)}
+        emissiveMap={faceGlowTexture(n)}
         emissive={glow}
         emissiveIntensity={emissive}
         roughness={0.32}
@@ -45,7 +43,7 @@ function D6({ style }) {
   }, [style])
   return (
     <mesh castShadow receiveShadow>
-      <boxGeometry args={[0.42, 0.42, 0.42]} />
+      <boxGeometry args={[0.38, 0.38, 0.38]} />
       {mats}
     </mesh>
   )

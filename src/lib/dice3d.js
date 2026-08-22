@@ -198,7 +198,7 @@ function createD10Geometry() {
     const r1 = 2 + ((2 * i + 1) % 10)
     const r2 = 2 + ((2 * i + 2) % 10)
     const r3 = 2 + ((2 * i + 3) % 10)
-    faces.push([1, r1, r2], [1, r2, r3])
+    faces.push([1, r2, r1], [1, r3, r2])
   }
   const positions = []
   for (const face of faces) {
@@ -273,19 +273,17 @@ function assignFaceUV(face, pos, uvs, normalsArr) {
   } else if (face.tris.length === 1 && keys.length === 3) {
     uvByKey = keys.map((k, i) => [k, i === 0 ? [0.5, 1] : i === 1 ? [0, 0] : [1, 0]])
   } else if (face.tris.length === 3 && keys.length === 5) {
-    const interior = keys.find((k) => byKey.get(k).length === 3)
-    const perimeter = keys.filter((k) => k !== interior)
     const cen = new THREE.Vector3()
-    for (const k of perimeter) {
+    for (const k of keys) {
       V.fromBufferAttribute(pos, byKey.get(k)[0])
       cen.add(V)
     }
-    cen.multiplyScalar(1 / perimeter.length)
-    V.fromBufferAttribute(pos, byKey.get(perimeter[0])[0])
+    cen.multiplyScalar(1 / keys.length)
+    V.fromBufferAttribute(pos, byKey.get(keys[0])[0])
     const t1 = new THREE.Vector3().subVectors(V, cen).normalize()
     const t2 = new THREE.Vector3().crossVectors(n, t1)
-    uvByKey = [[interior, [0.5, 0.5]]]
-    for (const k of perimeter) {
+    uvByKey = []
+    for (const k of keys) {
       V.fromBufferAttribute(pos, byKey.get(k)[0])
       const d = new THREE.Vector3().subVectors(V, cen)
       const ang = Math.atan2(d.dot(t2), d.dot(t1))
