@@ -20,6 +20,7 @@ export function useMesas(enabled, identity) {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [pendingCharName, setPendingCharName] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!enabled || !identity?.id) return []
@@ -41,6 +42,7 @@ export function useMesas(enabled, identity) {
         if (!found && invite) {
           const joined = await joinByCode(invite, identity)
           found = joined.mesa
+          if (joined.isNew) setPendingCharName(true)
           await refresh()
         }
         if (found) {
@@ -68,6 +70,7 @@ export function useMesas(enabled, identity) {
   const close = () => {
     persistMesaParam('')
     setCurrent(null)
+    setPendingCharName(false)
   }
 
   const create = async (fields) => {
@@ -77,9 +80,10 @@ export function useMesas(enabled, identity) {
     return mesa
   }
 
-  const join = async (code, charName) => {
+  const join = async (code) => {
     try {
-      const { mesa } = await joinByCode(code, identity, charName)
+      const { mesa, isNew } = await joinByCode(code, identity)
+      if (isNew) setPendingCharName(true)
       await refresh()
       await open(mesa)
       return mesa
@@ -116,6 +120,8 @@ export function useMesas(enabled, identity) {
     loading,
     error,
     setError,
+    pendingCharName,
+    dismissCharName: () => setPendingCharName(false),
     refresh,
     open,
     close,

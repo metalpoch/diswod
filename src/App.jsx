@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import CharacterGate from './components/CharacterGate'
 import ChroniclePanel from './components/ChroniclePanel'
 import DicePanel from './components/DicePanel'
+import DiscordOnly from './components/DiscordOnly'
 import Help from './components/Help'
 import MesaLobby from './components/MesaLobby'
 import NameEdit from './components/NameEdit'
@@ -10,7 +12,7 @@ import { useGameLog } from './hooks/useGameLog'
 import { useMembers } from './hooks/useMembers'
 import { useMesas } from './hooks/useMesas'
 import { executeParsed, formatResultLine } from './lib/dice'
-import { colorFromName } from './lib/discord'
+import { colorFromName, isLikelyEmbedded } from './lib/discord'
 import { deleteMyData, renameMember } from './lib/mesasApi'
 import { hasSupabase } from './lib/supabase'
 import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
@@ -118,6 +120,10 @@ export default function App() {
     const next = { ...activity.identity, name, color: colorFromName(name) }
     activity.setIdentity(next)
     log.renamePlayer(next.id, name)
+  }
+
+  if (!isLikelyEmbedded() && !import.meta.env.DEV && import.meta.env.VITE_ALLOW_WEB !== '1') {
+    return <DiscordOnly />
   }
 
   if (!activity.identity) {
@@ -283,6 +289,22 @@ export default function App() {
             : ''}
         lastCommands={lastCommands}
       />
+      {persist.enabled && archive.pendingCharName ? (
+        <CharacterGate
+          defaultName={activity.identity.name}
+          onAccept={async (name) => {
+            try {
+              await renameMember(persist.mesaId, activity.identity.id, name)
+              log.renamePlayer(activity.identity.id, name)
+              archive.dismissCharName()
+              flash(`Bienvenido, ${name}`)
+            } catch (err) {
+              flash(err.message || 'No se pudo guardar el nombre')
+            }
+          }}
+          onDismiss={archive.dismissCharName}
+        />
+      ) : null}
       {toast ? <div className="toast">{toast}</div> : null}
     </div>
   )

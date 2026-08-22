@@ -92,15 +92,15 @@ export async function addMember(mesaId, identity, role, charName) {
   return mapMember(data)
 }
 
-export async function joinByCode(code, identity, charName) {
+export async function joinByCode(code, identity) {
   const mesa = await getMesaByCode(code)
   if (!mesa) throw new Error('Código inválido')
   const members = await listMembers(mesa.id)
   const existing = members.find((m) => m.player_id === identity.id)
-  if (existing) return { mesa, member: existing }
+  if (existing) return { mesa, member: existing, isNew: false }
   const role = canPromote(members) ? 'player' : 'visitor'
-  const member = await addMember(mesa.id, identity, role, charName)
-  return { mesa, member }
+  const member = await addMember(mesa.id, identity, role)
+  return { mesa, member, isNew: true }
 }
 
 export async function renameMember(mesaId, playerId, name) {

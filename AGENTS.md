@@ -38,9 +38,10 @@ No existe "nombre de jugador" global. El modelo actual:
 
 - **Identidad** = usuario de Discord (id, nombre visible, avatar). En la Activity viene del auth vía la Edge Function `discord-token`; si falla, `NameGate` muestra la lista de participantes para elegir usuario. En web sin Discord: id local + nombre "Jugador".
 - **`useActivity` descarta identidades guardadas que no sean de Discord** (o que no estén en los participantes actuales) para que PC y móvil compartan el mismo `player_id` en Supabase. No reintroduzcas nombres custom en la identidad.
-- **Nombre de personaje es por mesa** (`mesa_members.player_name`). Se pide solo al unirse con código (form de "Unirse" en `MesaLobby`); al crear mesa el creador queda como "Narrador". Se edita con el botón ✎ del topbar (`NameEdit`).
+- **Nombre de personaje es por mesa** (`mesa_members.player_name`). Al unirse por código siendo miembro nuevo, se muestra un modal de bienvenida (`CharacterGate`) que pide el nombre de personaje y confirma 18+; si lo omites ("Ahora no") queda tu nombre de Discord. Al crear mesa el creador queda como "Narrador". Se edita con el botón ✎ del topbar (`NameEdit`).
 - **Renombrar reescribe TODO el historial**: `mesasApi.renameMember` actualiza `mesa_members` + todas las filas de `log_entries` (columna `player_name` y `payload.player.name`), y `log.renamePlayer` reescribe el log vivo en Yjs para todos. Las tiradas nuevas usan el nombre de personaje (`App.jsx`, `charName`).
 - La pantalla de entrada (`NameGate`) ya NO pide nombre; solo es el age gate 18+ (texto "contenido 18+") y, en Discord, el picker de participantes. Las páginas legales (`public/tos.html`, `public/privacy.html`) dicen solo 18+.
+- **Web bloqueada en producción**: si `useActivity` arranca en modo `standalone` y no hay `VITE_ALLOW_WEB=1`, se muestra `DiscordOnly` invitando a usar la Activity. En dev (`npm run dev`) la web sigue funcionando.
 
 ## Reglas de mesa
 

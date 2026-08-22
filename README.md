@@ -33,7 +33,7 @@ Incluye una **mesa 3D** (Three.js) con 4 asientos donde los dados caen y se ven 
 
 ### Actividad de Discord
 - Identidad desde el SDK (`identify`), lista de participantes en la activity.
-- Funciona igual sin Discord (navegador) usando `?room=` para compartir sala.
+- La versión web está bloqueada en producción (muestra un aviso para usar Discord); en desarrollo local funciona igual con `?room=` para compartir sala, o con `VITE_ALLOW_WEB=1`.
 
 ---
 

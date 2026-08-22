@@ -498,12 +498,6 @@ code {
   text-transform: uppercase;
   color: var(--muted);
 }
-.lobby-join .join-char {
-  background: #0b0404;
-  border: 1px solid var(--line);
-  padding: 10px 12px;
-  margin-bottom: 8px;
-}
 .join-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 .join-row input {
   background: #0b0404;
@@ -591,6 +585,35 @@ code {
   box-shadow: var(--shadow);
 }
 .gate-copy { color: var(--muted); }
+.modal-veil {
+  position: fixed;
+  inset: 0;
+  background: #070404cc;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 20;
+}
+.modal-card {
+  width: min(440px, 100%);
+  display: grid;
+  gap: 8px;
+}
+.modal-card h1 {
+  font-family: Cinzel, serif;
+  color: var(--gold);
+  font-size: 19px;
+  letter-spacing: 0.14em;
+  margin: 0;
+}
+.modal-card input {
+  background: #0b0404;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+}
+.modal-card input:focus { border-color: var(--gold); }
+.modal-card .primary { justify-content: center; }
+.modal-card .gate-age { margin: 0; }
 .gate-people {
   display: grid;
   gap: 6px;
