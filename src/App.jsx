@@ -269,13 +269,15 @@ export default function App() {
             Números {showDieLabels ? 'ON' : 'OFF'}
           </button>
           <NameEdit name={charName} onRename={renameSelf} />
-          <button
-            type="button"
-            className={showTable ? 'ghost is-on' : 'ghost'}
-            onClick={() => setShowTable((v) => !v)}
-          >
-            Mesa 3D
-          </button>
+          {!isMobile ? (
+            <button
+              type="button"
+              className={showTable ? 'ghost is-on' : 'ghost'}
+              onClick={() => setShowTable((v) => !v)}
+            >
+              Mesa 3D
+            </button>
+          ) : null}
           <Help />
         </div>
       </header>
