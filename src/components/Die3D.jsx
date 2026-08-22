@@ -1,12 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Billboard } from '@react-three/drei'
+import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   faceDataFor,
   faceGlowTexture,
   faceNumberTexture,
-  labelTexture,
   plainFaceTexture,
   styleMaps,
 } from '../lib/dice3d'
@@ -103,7 +102,13 @@ export default function Die3D({ die, play }) {
   const [done, setDone] = useState(!play)
   const born = useRef(performance.now() + die.delay * 1000)
   const from = useMemo(() => new THREE.Quaternion().setFromAxisAngle(die.axis, die.spins), [die])
-  const label = useMemo(() => labelTexture(die.value, die.style), [die.value, die.style])
+  const label = useMemo(
+    () => ({
+      bg: styleMaps.body[die.style] || styleMaps.body.generic,
+      ink: styleMaps.ink[die.style] || styleMaps.ink.generic,
+    }),
+    [die.style],
+  )
 
   useFrame(() => {
     const group = ref.current
@@ -127,12 +132,17 @@ export default function Die3D({ die, play }) {
     <group ref={ref}>
       {die.sides === 6 ? <D6 style={die.style} /> : <Faces sides={die.sides} style={die.style} value={die.value} />}
       {done && (
-        <Billboard position={[0, 0.44, 0]}>
-          <mesh>
-            <planeGeometry args={[0.4, 0.26]} />
-            <meshBasicMaterial map={label} transparent depthTest={false} />
-          </mesh>
-        </Billboard>
+        <Html
+          position={[0, 0.55, 0]}
+          center
+          distanceFactor={8}
+          zIndexRange={[20000000, 19000000]}
+          style={{ pointerEvents: 'none' }}
+        >
+          <div className="die-label" style={{ background: label.bg, color: label.ink }}>
+            {die.value}
+          </div>
+        </Html>
       )}
     </group>
   )
