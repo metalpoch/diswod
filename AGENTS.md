@@ -14,7 +14,13 @@ No hay lint, typecheck ni formatter configurados. No hay CI local; el único "ve
 
 ## Despliegue
 
-Push a `main` en GitHub → Cloudflare Workers reconstruye automáticamente. No hay comando de deploy manual. Nunca hagas commit de `dist/` (ignorado).
+Push a `main` en GitHub → Cloudflare Workers reconstruye automáticamente. No hay comando de deploy manual. Nunca hagas commit de `dist/` (ignorado). No hay `wrangler.toml` ni CI en el repo: todo el build/config está en el dashboard de Cloudflare (Workers Builds).
+
+Hay **dos despliegues** del mismo repo:
+- `main` → `diswod.keiberup.dev` (Activity de Discord; **sin** `VITE_ALLOW_WEB`, la web muestra `DiscordOnly`).
+- `dev` → `diswod-dev.keiberup-dev.workers.dev` (web abierta con `VITE_ALLOW_WEB=1`, para probar cambios sin afectar la Activity).
+
+Flujo de prueba: commit en `dev` → auto-deploy al workers.dev → probar en navegador → `git checkout main && git merge dev && git push`. En el workers.dev la identidad es local (no hay SDK de Discord), así que las mesas creadas ahí usan un `player_id` local, separado de las de Discord (aunque compartan la misma BD de Supabase).
 
 `vite.config.js` usa `base: './'` (assets relativos, requerido por el sandbox de la Activity) y `vite-plugin-node-polyfills` (lo necesita y-webrtc).
 
@@ -28,9 +34,14 @@ Push a `main` en GitHub → Cloudflare Workers reconstruye automáticamente. No 
 ## Arquitectura
 
 - `src/App.jsx` es el orquestador; el resto son piezas.
-- `src/lib/`: `parser.js` (parsing de comandos), `dice.js` (tiradas WOD/genéricas), `seats.js` (asientos), `invite.js` (códigos/roles), `discord.js` (SDK Discord), `sync.js` (Yjs/y-webrtc), `supabase.js` (cliente), `mesasApi.js` (todas las llamadas a Supabase).
+- `src/lib/`: `parser.js` (parsing de comandos), `dice.js` (tiradas WOD/genéricas), `seats.js` (asientos), `invite.js` (códigos/roles), `discord.js` (SDK Discord), `sync.js` (Yjs/y-webrtc), `supabase.js` (cliente), `mesasApi.js` (todas las llamadas a Supabase), `dice3d.js` (geometrías/texturas 3D de los dados + `planDice`/`quatForValue`), `clipboard.js` (`copyText` con fallback `execCommand` para el sandbox).
 - `src/hooks/`: `useActivity` (boot del SDK Discord), `useMesas`, `useMembers`, `useGameLog` (fusiona log vivo + persistido).
 - `Table3D` se carga con `React.lazy` (code-split de three.js). No lo importes estáticamente.
+
+## Dados 3D
+
+- El d10 es un **trapezoedro pentagonal** de 10 kites coplanares (`createD10Geometry` usa `h = tan²(π/10)` para la planitud exacta), con caras opuestas que suman 11. Los triángulos deben estar enrollados **hacia afuera** o las caras se culling por backface (ya hubo ese bug). `src/lib/dice3d.test.js` verifica conteo de caras, opuestos suman 11 y winding; añade un test si tocas geometría.
+- El "valor cara arriba" lo hace `quatForValue(sides, value)` (rota la cara cuyo `valueByFace` coincide hacia `UP`). El d6 usa un cubo con números (antes pips), no `faceDataFor`.
 
 ## Identidad y nombres
 
@@ -70,5 +81,5 @@ No existe "nombre de jugador" global. El modelo actual:
 ## Convenciones
 
 - Commits en `main`, estilo Conventional Commits corto: `feat:`, `fix:`.
-- `mocks/` está gitignoreado (contiene un PDF con copyright; no lo añadas).
+- `mocks/` está gitignoreado (contiene un PDF con copyright; no lo añadas). Ahí también están los previews de dados para depurar visualmente sin desplegar: `all-dice-preview.html` (autocontenido, three.js por CDN) y `dice-preview.html`+`dice-preview.js` (usa el código real vía `npm run dev` → abre `http://localhost:5173/mocks/dice-preview.html`).
 - UX: placeholders vacíos o `XXXXXX` (nunca valores con aspecto real como `K7M2PQ`); los textos de UI van en español.
