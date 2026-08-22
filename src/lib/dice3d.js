@@ -161,6 +161,25 @@ export function plainFaceTexture(style) {
   })
 }
 
+export function labelTexture(value, style) {
+  const key = `label-${value}-${style}`
+  return makeTexture(key, (ctx) => {
+    ctx.clearRect(0, 0, 128, 128)
+    ctx.fillStyle = styleBody(style)
+    ctx.beginPath()
+    ctx.roundRect(10, 10, 108, 108, 20)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'
+    ctx.lineWidth = 4
+    ctx.stroke()
+    ctx.font = faceFont(value)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = styleInk(style)
+    ctx.fillText(String(value), 64, 70)
+  })
+}
+
 function createD10Geometry() {
   const verts = [[0, 0, 1], [0, 0, -1]]
   for (let i = 0; i < 10; i += 1) {

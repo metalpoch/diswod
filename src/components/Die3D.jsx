@@ -1,10 +1,12 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { Billboard } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   faceDataFor,
   faceGlowTexture,
   faceNumberTexture,
+  labelTexture,
   pipGlowTexture,
   pipTexture,
   plainFaceTexture,
@@ -100,8 +102,10 @@ function Faces({ sides, style, value }) {
 
 export default function Die3D({ die, play }) {
   const ref = useRef()
+  const [done, setDone] = useState(!play)
   const born = useRef(performance.now() + die.delay * 1000)
   const from = useMemo(() => new THREE.Quaternion().setFromAxisAngle(die.axis, die.spins), [die])
+  const label = useMemo(() => labelTexture(die.value, die.style), [die.value, die.style])
 
   useFrame(() => {
     const group = ref.current
@@ -118,11 +122,20 @@ export default function Die3D({ die, play }) {
     group.position.y = die.target.y + bounce
     const tumble = new THREE.Quaternion().setFromAxisAngle(die.axis, (1 - ease) * die.spins * Math.PI * 2)
     group.quaternion.copy(from).premultiply(tumble).slerp(die.final, ease * ease)
+    if (t >= 1 && !done) setDone(true)
   })
 
   return (
     <group ref={ref}>
       {die.sides === 6 ? <D6 style={die.style} /> : <Faces sides={die.sides} style={die.style} value={die.value} />}
+      {done && (
+        <Billboard position={[0, 0.46, 0]}>
+          <mesh>
+            <planeGeometry args={[0.34, 0.34]} />
+            <meshBasicMaterial map={label} transparent depthTest={false} />
+          </mesh>
+        </Billboard>
+      )}
     </group>
   )
 }
