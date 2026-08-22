@@ -269,23 +269,13 @@ export default function App() {
             Números {showDieLabels ? 'ON' : 'OFF'}
           </button>
           <NameEdit name={charName} onRename={renameSelf} />
-          {isMobile ? (
-            <button
-              type="button"
-              className="ghost table-toggle-mobile"
-              onClick={() => setShowTable(true)}
-            >
-              Mesa 3D
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={showTable ? 'ghost is-on' : 'ghost'}
-              onClick={() => setShowTable((v) => !v)}
-            >
-              Mesa 3D
-            </button>
-          )}
+          <button
+            type="button"
+            className={showTable ? 'ghost is-on' : 'ghost'}
+            onClick={() => setShowTable((v) => !v)}
+          >
+            Mesa 3D
+          </button>
           <Help />
         </div>
       </header>
@@ -334,7 +324,6 @@ export default function App() {
             localId={activity.identity.id}
             localSeat={mySeat}
             showLabels={showDieLabels}
-            hidden={isMobile && !showTable}
           />
         </Suspense>
       </main>
@@ -362,11 +351,6 @@ export default function App() {
           }}
           onDismiss={archive.dismissCharName}
         />
-      ) : null}
-      {isMobile && showTable ? (
-        <button type="button" className="table-close-fixed" onClick={() => setShowTable(false)} aria-label="Cerrar mesa 3D">
-          ✕
-        </button>
       ) : null}
       {toast ? <div className="toast">{toast}</div> : null}
     </div>

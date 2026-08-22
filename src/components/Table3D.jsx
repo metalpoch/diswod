@@ -153,7 +153,7 @@ function Scene({ seats, rolls, localSeat, showLabels }) {
   )
 }
 
-export default function Table3D({ seats, entries, localId, localSeat, showLabels, hidden }) {
+export default function Table3D({ seats, entries, localId, localSeat, showLabels }) {
   const rolls = useMemo(() => {
     const latest = new Map()
     for (const entry of entries) {
@@ -172,7 +172,7 @@ export default function Table3D({ seats, entries, localId, localSeat, showLabels
   }, [entries, seats])
 
   return (
-    <div className={hidden ? 'table-stage table-hidden' : 'table-stage'}>
+    <div className="table-stage">
       <Canvas
         shadows
         dpr={[1, 1.6]}
