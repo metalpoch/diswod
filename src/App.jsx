@@ -18,6 +18,20 @@ import { hasSupabase } from './lib/supabase'
 import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
 import { copyText } from './lib/clipboard'
 
+function useIsMobile(bp = 800) {
+  const [m, setM] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia(`(max-width: ${bp}px)`).matches
+  })
+  useEffect(() => {
+    const q = window.matchMedia(`(max-width: ${bp}px)`)
+    const fn = (e) => setM(e.matches)
+    q.addEventListener('change', fn)
+    return () => q.removeEventListener('change', fn)
+  }, [bp])
+  return m
+}
+
 const Table3D = lazy(() => import('./components/Table3D'))
 
 export default function App() {
@@ -26,9 +40,10 @@ export default function App() {
   const archive = useMesas(persistOn, activity.identity)
   const [skipSave, setSkipSave] = useState(false)
   const [toast, setToast] = useState('')
-  const [showLog, setShowLog] = useState(false)
   const [showDieLabels, setShowDieLabels] = useState(false)
   const [tab, setTab] = useState('log')
+  const isMobile = useIsMobile()
+  const [showTable, setShowTable] = useState(!isMobile)
 
   const persist = persistOn && archive.current && !skipSave
     ? { enabled: true, mesaId: archive.current.id, sessionId: archive.current.currentSessionId }
@@ -254,23 +269,28 @@ export default function App() {
             Números {showDieLabels ? 'ON' : 'OFF'}
           </button>
           <NameEdit name={charName} onRename={renameSelf} />
-          <button type="button" className="ghost players-toggle" onClick={() => setShowLog((v) => !v)}>
-            Panel
-          </button>
+          {isMobile ? (
+            <button
+              type="button"
+              className="ghost table-toggle-mobile"
+              onClick={() => setShowTable(true)}
+            >
+              Mesa 3D
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={showTable ? 'ghost is-on' : 'ghost'}
+              onClick={() => setShowTable((v) => !v)}
+            >
+              Mesa 3D
+            </button>
+          )}
           <Help />
         </div>
       </header>
 
-      <main className={showLog ? 'show-log' : ''}>
-        <Suspense fallback={<div className="table-stage" />}>
-          <Table3D
-            seats={seats}
-            entries={log.entries}
-            localId={activity.identity.id}
-            localSeat={mySeat}
-            showLabels={showDieLabels}
-          />
-        </Suspense>
+      <main className={showTable ? '' : 'table-closed'}>
         <ChroniclePanel
           tab={tab}
           onTab={setTab}
@@ -307,6 +327,17 @@ export default function App() {
             flash(ok ? 'Código copiado' : 'No se pudo copiar')
           }}
         />
+        <Suspense fallback={<div className="table-stage" />}>
+          <Table3D
+            seats={seats}
+            entries={log.entries}
+            localId={activity.identity.id}
+            localSeat={mySeat}
+            showLabels={showDieLabels}
+            hidden={isMobile && !showTable}
+            onClose={isMobile ? () => setShowTable(false) : undefined}
+          />
+        </Suspense>
       </main>
 
       <DicePanel
