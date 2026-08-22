@@ -16,6 +16,8 @@ No hay lint, typecheck ni formatter configurados. No hay CI local; el único "ve
 
 Push a `main` en GitHub → Cloudflare Workers reconstruye automáticamente. No hay comando de deploy manual. Nunca hagas commit de `dist/` (ignorado).
 
+`vite.config.js` usa `base: './'` (assets relativos, requerido por el sandbox de la Activity) y `vite-plugin-node-polyfills` (lo necesita y-webrtc).
+
 ## Env y secretos
 
 - `.env` está gitignoreado; plantilla en `.env.example`.
@@ -30,19 +32,38 @@ Push a `main` en GitHub → Cloudflare Workers reconstruye automáticamente. No 
 - `src/hooks/`: `useActivity` (boot del SDK Discord), `useMesas`, `useMembers`, `useGameLog` (fusiona log vivo + persistido).
 - `Table3D` se carga con `React.lazy` (code-split de three.js). No lo importes estáticamente.
 
+## Identidad y nombres
+
+No existe "nombre de jugador" global. El modelo actual:
+
+- **Identidad** = usuario de Discord (id, nombre visible, avatar). En la Activity viene del auth vía la Edge Function `discord-token`; si falla, `NameGate` muestra la lista de participantes para elegir usuario. En web sin Discord: id local + nombre "Jugador".
+- **`useActivity` descarta identidades guardadas que no sean de Discord** (o que no estén en los participantes actuales) para que PC y móvil compartan el mismo `player_id` en Supabase. No reintroduzcas nombres custom en la identidad.
+- **Nombre de personaje es por mesa** (`mesa_members.player_name`). Se pide solo al unirse con código (form de "Unirse" en `MesaLobby`); al crear mesa el creador queda como "Narrador". Se edita con el botón ✎ del topbar (`NameEdit`).
+- **Renombrar reescribe TODO el historial**: `mesasApi.renameMember` actualiza `mesa_members` + todas las filas de `log_entries` (columna `player_name` y `payload.player.name`), y `log.renamePlayer` reescribe el log vivo en Yjs para todos. Las tiradas nuevas usan el nombre de personaje (`App.jsx`, `charName`).
+- La pantalla de entrada (`NameGate`) ya NO pide nombre; solo es el age gate 18+ (texto "contenido 18+") y, en Discord, el picker de participantes. Las páginas legales (`public/tos.html`, `public/privacy.html`) dicen solo 18+.
+
+## Reglas de mesa
+
+- Las tiradas se bloquean (`DicePanel` disabled) si el **Narrador no está online** (detección vía presencia Yjs: `log.remotes` contiene el `dmId`) o si **te silenciaron** (`mesa_members.muted`). Notas y pizarra siguen editables. Lógica en `App.jsx` (`dmOnline`, `rollBlocked`).
+- El Narrador silencia/activa jugadores en la pestaña Mesa (`MembersPanel` → `setMemberMuted`).
+
 ## Supabase
 
 - `supabase/schema.sql` = esquema completo (tablas + RLS + publicación realtime). `supabase/migration_members.sql` = incremental para instalaciones previas.
 - El RLS es `using (true)` (abierto a propósito). No lo "endurezcas" sin hablar con el usuario.
 - El `roomId` de sync es `mesa-<mesaId>` cuando hay mesa persistida, si no `activity.roomId`.
+- **Tú NO puedes ejecutar DDL**: el agente solo tiene la publishable key (REST). Los cambios de schema (`muted` en `mesa_members`, drop de `character_name` en `player_notes`) están en los archivos `.sql`; recuérdale al usuario correrlos en el SQL Editor de Supabase.
+- **Sí puedes borrar filas por REST** (así se limpia la BD). DELETE con header `apikey`/`Authorization: Bearer <publishable key>` a `$VITE_SUPABASE_URL/rest/v1/<tabla>?<filtro>`. Las tablas con `id` uuid usan `id=gt.00000000-0000-0000-0000-000000000000`; las de clave compuesta (`player_notes`, `player_boards`, `mesa_members`) usan `mesa_id=not.is.null` (un filtro con `id` da 400). Verifica con `select=count` + header `Prefer: count=exact`.
 
 ## Discord Activity (gotchas del portal)
 
 - URL Mappings sin `https://` y con el prefix más corto **al final**: `/supabase`, `/gfonts`, `/gstatic`, `/`.
 - El SDK mapea Supabase vía `patchUrlMappings` con prefix `/supabase` (`src/lib/discord.js`).
+- Si el mapping `/supabase` falla, `cleanError` (lib/supabase.js) convierte respuestas HTML en el hint "Revisa el URL Mapping /supabase en el portal de Discord".
 - La identidad de Discord requiere la Edge Function `discord-token`; sin ella cae a "elegir usuario de la Activity".
 
 ## Convenciones
 
 - Commits en `main`, estilo Conventional Commits corto: `feat:`, `fix:`.
 - `mocks/` está gitignoreado (contiene un PDF con copyright; no lo añadas).
+- UX: placeholders vacíos o `XXXXXX` (nunca valores con aspecto real como `K7M2PQ`); los textos de UI van en español.
