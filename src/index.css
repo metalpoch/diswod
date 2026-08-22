@@ -501,6 +501,22 @@ code {
   letter-spacing: 0.16em;
   font-family: "Share Tech Mono", monospace;
 }
+.lobby-char {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 20px;
+}
+.lobby-char label {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lobby-char input {
+  background: #0b0404;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+}
 .invite-mini { font-family: "Share Tech Mono", monospace; color: var(--gold); }
 .invite-code {
   display: flex;

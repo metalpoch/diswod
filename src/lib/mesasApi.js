@@ -54,7 +54,7 @@ export async function getMesaByCode(code) {
   return mapMesa(data)
 }
 
-export async function createMesa({ name, description, kind, identity }) {
+export async function createMesa({ name, description, kind, identity, charName }) {
   const invite = await uniqueInvite()
   const { data, error } = await supabase
     .from('mesas')
@@ -70,19 +70,19 @@ export async function createMesa({ name, description, kind, identity }) {
     .select('*')
     .single()
   if (error) throw error
-  await addMember(data.id, identity, 'dm')
+  await addMember(data.id, identity, 'dm', charName)
   const mesa = mapMesa(data)
   const session = await createSession(mesa.id, 'Sesión 1')
   return setCurrentSession(mesa.id, session.id)
 }
 
-export async function addMember(mesaId, identity, role) {
+export async function addMember(mesaId, identity, role, charName) {
   const { data, error } = await supabase
     .from('mesa_members')
     .upsert({
       mesa_id: mesaId,
       player_id: identity.id,
-      player_name: identity.name || 'Kindred',
+      player_name: (charName || '').trim() || identity.name || 'Kindred',
       avatar: identity.avatar || null,
       role,
     })
@@ -92,24 +92,43 @@ export async function addMember(mesaId, identity, role) {
   return mapMember(data)
 }
 
-export async function joinByCode(code, identity) {
+export async function joinByCode(code, identity, charName) {
   const mesa = await getMesaByCode(code)
   if (!mesa) throw new Error('Código inválido')
   const members = await listMembers(mesa.id)
   const existing = members.find((m) => m.player_id === identity.id)
   if (existing) return { mesa, member: existing }
   const role = canPromote(members) ? 'player' : 'visitor'
-  const member = await addMember(mesa.id, identity, role)
+  const member = await addMember(mesa.id, identity, role, charName)
   return { mesa, member }
 }
 
-export async function renameMember(mesaId, identity) {
-  const { error } = await supabase
+export async function renameMember(mesaId, playerId, name) {
+  const { error: memberError } = await supabase
     .from('mesa_members')
-    .update({ player_name: identity.name, avatar: identity.avatar || null })
+    .update({ player_name: name })
     .eq('mesa_id', mesaId)
-    .eq('player_id', identity.id)
+    .eq('player_id', playerId)
+  if (memberError) throw memberError
+
+  const { data, error } = await supabase
+    .from('log_entries')
+    .select('id, payload')
+    .eq('mesa_id', mesaId)
+    .eq('player_id', playerId)
   if (error) throw error
+
+  for (const row of data || []) {
+    const payload = {
+      ...(row.payload || {}),
+      player: { ...(row.payload?.player || {}), name },
+    }
+    const { error: updateError } = await supabase
+      .from('log_entries')
+      .update({ player_name: name, payload })
+      .eq('id', row.id)
+    if (updateError) throw updateError
+  }
 }
 
 export async function listMembers(mesaId) {
@@ -263,14 +282,13 @@ export async function loadNotes(mesaId, playerId) {
     .eq('player_id', playerId)
     .maybeSingle()
   if (error) throw error
-  return data || { character_name: '', body: '' }
+  return data || { body: '' }
 }
 
-export async function saveNotes(mesaId, playerId, { characterName, body }) {
+export async function saveNotes(mesaId, playerId, body) {
   const { error } = await supabase.from('player_notes').upsert({
     mesa_id: mesaId,
     player_id: playerId,
-    character_name: characterName || '',
     body: body || '',
     updated_at: new Date().toISOString(),
   })

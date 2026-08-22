@@ -76,12 +76,14 @@ export default function App() {
     window.setTimeout(() => setToast(''), 1800)
   }
 
+  const charName = persist.enabled ? party.me?.name || activity.identity?.name : activity.identity?.name
+
   const onRoll = async (parsed) => {
     const result = executeParsed(parsed)
     log.addEntry({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       ts: Date.now(),
-      player: activity.identity,
+      player: charName ? { ...activity.identity, name: charName } : activity.identity,
       command: parsed.command,
       result,
       line: formatResultLine(result),
@@ -96,16 +98,19 @@ export default function App() {
   }
 
   const renameSelf = async (name) => {
-    const next = { ...activity.identity, name, color: colorFromName(name) }
-    activity.setIdentity(next)
     if (persist.enabled) {
       try {
-        await renameMember(persist.mesaId, next)
+        await renameMember(persist.mesaId, activity.identity.id, name)
+        log.renamePlayer(activity.identity.id, name)
         flash('Nombre actualizado')
       } catch (err) {
         flash(err.message || 'No se pudo actualizar el nombre en la mesa')
       }
+      return
     }
+    const next = { ...activity.identity, name, color: colorFromName(name) }
+    activity.setIdentity(next)
+    log.renamePlayer(next.id, name)
   }
 
   if (!activity.identity) {
@@ -207,7 +212,7 @@ export default function App() {
               : `Sala ${activity.roomId}`}
           </button>
           <Help />
-          <NameEdit identity={activity.identity} onRename={renameSelf} />
+          <NameEdit name={charName} onRename={renameSelf} />
           <button type="button" className="ghost players-toggle" onClick={() => setShowLog((v) => !v)}>
             Panel
           </button>

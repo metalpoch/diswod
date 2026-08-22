@@ -23,6 +23,7 @@ export default function MesaLobby({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [kind, setKind] = useState('principal')
+  const [charName, setCharName] = useState(identity?.name || '')
   const [code, setCode] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -35,7 +36,7 @@ export default function MesaLobby({
     if (!name.trim() || busy) return
     setBusy(true)
     try {
-      await onCreate({ name, description, kind })
+      await onCreate({ name, description, kind, charName })
     } finally {
       setBusy(false)
     }
@@ -47,7 +48,7 @@ export default function MesaLobby({
     setBusy(true)
     setJoinError('')
     try {
-      await onJoin(code)
+      await onJoin(code, charName)
     } catch (err) {
       setJoinError(err.message || 'Código inválido')
     } finally {
@@ -67,6 +68,18 @@ export default function MesaLobby({
         </header>
 
         {error ? <p className="hint bad">{error}</p> : null}
+
+        <div className="lobby-char">
+          <label htmlFor="char-name">Tu personaje</label>
+          <input
+            id="char-name"
+            value={charName}
+            onChange={(e) => setCharName(e.target.value)}
+            maxLength={32}
+            placeholder=""
+          />
+          <p className="hint">El nombre de tu personaje en la mesa a la que entres. Puedes cambiarlo dentro.</p>
+        </div>
 
         <form className="lobby-join" onSubmit={join}>
           <label htmlFor="invite-code">Código de invitación</label>

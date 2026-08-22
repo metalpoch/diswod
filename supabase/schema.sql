@@ -34,7 +34,6 @@ create table if not exists log_entries (
 create table if not exists player_notes (
   mesa_id uuid not null references mesas(id) on delete cascade,
   player_id text not null,
-  character_name text not null default '',
   body text not null default '',
   updated_at timestamptz not null default now(),
   primary key (mesa_id, player_id)

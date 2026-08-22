@@ -75,7 +75,7 @@ export default function NameGate({ participants, identity, onSubmit, embedded })
                 autoFocus
               />
               <p className="gate-age">
-                El nombre de tu personaje se define dentro de la mesa, en la pestaña Notas.
+                El nombre de tu personaje se define al entrar en cada mesa.
               </p>
             </>
           ) : null}

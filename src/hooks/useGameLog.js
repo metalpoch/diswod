@@ -81,6 +81,10 @@ export function useGameLog(roomId, identity, persist) {
     syncRef.current?.clear()
   }
 
+  const renamePlayer = (playerId, name) => {
+    syncRef.current?.renamePlayer(playerId, name)
+  }
+
   return {
     entries: mergeEntries(stored, live),
     remotes,
@@ -88,5 +92,6 @@ export function useGameLog(roomId, identity, persist) {
     connected,
     addEntry,
     clear,
+    renamePlayer,
   }
 }

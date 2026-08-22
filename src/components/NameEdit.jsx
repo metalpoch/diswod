@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 
-export default function NameEdit({ identity, onRename }) {
+export default function NameEdit({ name, onRename }) {
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState(identity?.name || '')
+  const [value, setValue] = useState(name || '')
 
   useEffect(() => {
-    setName(identity?.name || '')
-  }, [identity?.name])
+    setValue(name || '')
+  }, [name])
 
   const submit = (event) => {
     event.preventDefault()
-    const trimmed = name.trim()
+    const trimmed = value.trim()
     if (!trimmed) return
     onRename(trimmed)
     setOpen(false)
@@ -23,22 +23,21 @@ export default function NameEdit({ identity, onRename }) {
         className="ghost name-btn"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        title="Cambiar tu nombre"
+        title="Cambiar el nombre de tu personaje"
       >
-        {identity?.name || 'Sin nombre'} ✎
+        {name || 'Sin personaje'} ✎
       </button>
       {open && (
         <form className="help-pop" onSubmit={submit}>
-          <h3>Tu nombre</h3>
-          <p>Así te ve el resto de jugadores en la mesa.</p>
+          <h3>Tu personaje</h3>
+          <p>El nombre de tu personaje en esta mesa. Se actualiza también en el historial.</p>
           <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
             maxLength={32}
             autoFocus
-            placeholder=""
           />
-          <button type="submit" className="primary" disabled={!name.trim()}>
+          <button type="submit" className="primary" disabled={!value.trim()}>
             Guardar
           </button>
         </form>

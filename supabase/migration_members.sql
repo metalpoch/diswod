@@ -31,3 +31,5 @@ end $$;
 update mesas
 set invite_code = upper(substr(replace(id::text, '-', ''), 1, 6))
 where invite_code is null;
+
+alter table player_notes drop column if exists character_name;

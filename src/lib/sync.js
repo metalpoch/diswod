@@ -57,6 +57,27 @@ export function createGameSync(roomId, onChange) {
     clear() {
       if (ylog.length) ylog.delete(0, ylog.length)
     },
+    renamePlayer(playerId, name) {
+      const items = ylog.toArray()
+      const next = items.map((item) => {
+        let parsed = item
+        if (typeof item === 'string') {
+          try {
+            parsed = JSON.parse(item)
+          } catch {
+            return item
+          }
+        }
+        if (parsed?.player?.id === playerId) {
+          return JSON.stringify({ ...parsed, player: { ...parsed.player, name } })
+        }
+        return item
+      })
+      if (next.some((item, i) => item !== items[i])) {
+        ylog.delete(0, ylog.length)
+        ylog.insert(0, next)
+      }
+    },
     setAwareness(state) {
       provider?.awareness.setLocalStateField('player', state)
     },

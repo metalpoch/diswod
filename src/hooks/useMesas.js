@@ -77,9 +77,9 @@ export function useMesas(enabled, identity) {
     return mesa
   }
 
-  const join = async (code) => {
+  const join = async (code, charName) => {
     try {
-      const { mesa } = await joinByCode(code, identity)
+      const { mesa } = await joinByCode(code, identity, charName)
       await refresh()
       await open(mesa)
       return mesa
