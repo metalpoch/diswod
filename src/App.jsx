@@ -335,7 +335,6 @@ export default function App() {
             localSeat={mySeat}
             showLabels={showDieLabels}
             hidden={isMobile && !showTable}
-            onClose={isMobile ? () => setShowTable(false) : undefined}
           />
         </Suspense>
       </main>
@@ -363,6 +362,11 @@ export default function App() {
           }}
           onDismiss={archive.dismissCharName}
         />
+      ) : null}
+      {isMobile && showTable ? (
+        <button type="button" className="table-close-fixed" onClick={() => setShowTable(false)} aria-label="Cerrar mesa 3D">
+          ✕
+        </button>
       ) : null}
       {toast ? <div className="toast">{toast}</div> : null}
     </div>

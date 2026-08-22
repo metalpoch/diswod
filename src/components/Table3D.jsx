@@ -153,7 +153,7 @@ function Scene({ seats, rolls, localSeat, showLabels }) {
   )
 }
 
-export default function Table3D({ seats, entries, localId, localSeat, showLabels, onClose, hidden }) {
+export default function Table3D({ seats, entries, localId, localSeat, showLabels, hidden }) {
   const rolls = useMemo(() => {
     const latest = new Map()
     for (const entry of entries) {
@@ -181,11 +181,6 @@ export default function Table3D({ seats, entries, localId, localSeat, showLabels
       >
         <Scene seats={seats} rolls={rolls} localSeat={localSeat} showLabels={showLabels} />
       </Canvas>
-      {onClose ? (
-        <button type="button" className="table-close" onClick={onClose} aria-label="Cerrar mesa 3D">
-          ✕
-        </button>
-      ) : null}
       {localSeat == null && localId ? <p className="table-note">Mesa llena · ves la crónica como espectador</p> : null}
     </div>
   )
