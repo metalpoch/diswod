@@ -25,9 +25,17 @@ export function useMembers(mesaId, identity) {
     const stop = subscribeMembers(mesaId, (rows) => {
       if (active) setMembers(rows)
     })
+    const timer = window.setInterval(() => {
+      listMembers(mesaId)
+        .then((rows) => {
+          if (active) setMembers(rows)
+        })
+        .catch(() => {})
+    }, 3000)
     return () => {
       active = false
       stop()
+      window.clearInterval(timer)
     }
   }, [mesaId])
 

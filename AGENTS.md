@@ -45,8 +45,10 @@ No existe "nombre de jugador" global. El modelo actual:
 
 ## Reglas de mesa
 
-- Las tiradas se bloquean (`DicePanel` disabled) si el **Narrador no está online** (detección vía presencia Yjs: `log.remotes` contiene el `dmId`) o si **te silenciaron** (`mesa_members.muted`). Notas y pizarra siguen editables. Lógica en `App.jsx` (`dmOnline`, `rollBlocked`).
+- Las tiradas se bloquean (`DicePanel` disabled) si el **Narrador no está online** (detección en `App.jsx`, `dmOnline`: si el Narrador está en `log.remotes` — presencia Yjs — **o** en `activity.participants` — participantes del SDK de Discord, la vía que funciona dentro del sandbox) o si **te silenciaron** (`mesa_members.muted`). Notas y pizarra siguen editables.
 - El Narrador silencia/activa jugadores en la pestaña Mesa (`MembersPanel` → `setMemberMuted`).
+- **El sandbox de Discord bloquea y-webrtc** (los signaling servers `signaling.yjs.dev`/heroku no están en URL Mappings): la presencia Yjs no sincroniza ahí dentro. Por eso `dmOnline` también mira `activity.participants` (eventos nativos `ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE`, funcionan en el sandbox).
+- **Supabase Realtime tampoco es fiable en el sandbox** (el WebSocket puede no llegar por el proxy de Discord). Por eso `useGameLog` y `useMembers` hacen **polling REST** cada ~2.5–3 s como fallback (`loadLogSince` con solape de 1 s, `listMembers`). El realtime sigue suscrito como vía rápida cuando funciona. No elimines el polling.
 
 ## Supabase
 

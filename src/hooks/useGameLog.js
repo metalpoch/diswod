@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { loadLog, saveLogEntry, subscribeLog } from '../lib/mesasApi'
+import { loadLog, loadLogSince, saveLogEntry, subscribeLog } from '../lib/mesasApi'
 import { createGameSync } from '../lib/sync'
 
 function mergeEntries(left, right) {
@@ -46,18 +46,36 @@ export function useGameLog(roomId, identity, persist) {
       return undefined
     }
     let active = true
+    let lastTs = 0
     loadLog(persist.mesaId).then((rows) => {
       if (!active) return
       setStored(rows)
       saved.current = new Set(rows.map((row) => row.id))
+      if (rows.length) lastTs = Math.max(...rows.map((row) => row.ts || 0))
     }).catch(() => {})
     const stop = subscribeLog(persist.mesaId, (entry) => {
       saved.current.add(entry.id)
+      if (entry.ts) lastTs = Math.max(lastTs, entry.ts)
       setStored((prev) => mergeEntries(prev, [entry]))
     })
+    const timer = window.setInterval(() => {
+      if (!active) return
+      const since = lastTs ? new Date(Math.max(0, lastTs - 1000)).toISOString() : undefined
+      loadLogSince(persist.mesaId, since)
+        .then((rows) => {
+          if (!active || !rows?.length) return
+          setStored((prev) => mergeEntries(prev, rows))
+          for (const row of rows) {
+            saved.current.add(row.id)
+            if (row.ts) lastTs = Math.max(lastTs, row.ts)
+          }
+        })
+        .catch(() => {})
+    }, 2500)
     return () => {
       active = false
       stop()
+      window.clearInterval(timer)
     }
   }, [persist?.enabled, persist?.mesaId])
 

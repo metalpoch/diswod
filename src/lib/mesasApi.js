@@ -244,6 +244,17 @@ export async function loadLog(mesaId) {
   return (data || []).map((row) => row.payload).filter(Boolean)
 }
 
+export async function loadLogSince(mesaId, sinceIso) {
+  let query = supabase
+    .from('log_entries')
+    .select('payload')
+    .eq('mesa_id', mesaId)
+  if (sinceIso) query = query.gt('ts', sinceIso)
+  const { data, error } = await query.order('ts', { ascending: true })
+  if (error) throw error
+  return (data || []).map((row) => row.payload).filter(Boolean)
+}
+
 export async function saveLogEntry(mesaId, sessionId, entry) {
   const { error } = await supabase.from('log_entries').upsert({
     id: entry.id,

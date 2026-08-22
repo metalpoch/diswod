@@ -85,6 +85,7 @@ export default function App() {
   const dmOnline = !persist.enabled || !dmId
     || activity.identity?.id === dmId
     || log.remotes.some((r) => r.id === dmId)
+    || activity.participants.some((p) => p.id === dmId)
   const muted = Boolean(persist.enabled && party.me?.muted)
   const rollBlocked = muted || !dmOnline
 
