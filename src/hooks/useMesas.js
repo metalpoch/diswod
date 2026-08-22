@@ -12,6 +12,7 @@ import {
   setCurrentSession,
   setMesaStatus,
 } from '../lib/mesasApi'
+import { cleanError } from '../lib/supabase'
 
 export function useMesas(enabled, identity) {
   const [mesas, setMesas] = useState([])
@@ -48,7 +49,7 @@ export function useMesas(enabled, identity) {
           setSessions(await listSessions(found.id))
         }
       })
-      .catch((err) => setError(err.message || 'No se pudieron cargar las mesas'))
+      .catch((err) => setError(cleanError(err)))
       .finally(() => {
         if (active) setLoading(false)
       })
@@ -77,10 +78,14 @@ export function useMesas(enabled, identity) {
   }
 
   const join = async (code) => {
-    const { mesa } = await joinByCode(code, identity)
-    await refresh()
-    await open(mesa)
-    return mesa
+    try {
+      const { mesa } = await joinByCode(code, identity)
+      await refresh()
+      await open(mesa)
+      return mesa
+    } catch (err) {
+      throw new Error(cleanError(err))
+    }
   }
 
   const archive = async (mesa) => {

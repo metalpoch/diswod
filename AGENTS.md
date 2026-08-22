@@ -20,6 +20,7 @@ Push a `main` en GitHub → Cloudflare Workers reconstruye automáticamente. No 
 
 - `.env` está gitignoreado; plantilla en `.env.example`.
 - Solo se leen vars con prefijo `VITE_` desde el navegador. **Nunca** pongas el client secret de Discord aquí; va en la Edge Function de Supabase (`supabase/functions/discord-token`, secretos `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET`).
+- **El build de Cloudflare NO ve `.env`** (gitignoreado). Las `VITE_` que necesita el build de Workers deben estar como variables de build en el dashboard (Workers Builds → Settings → Variables). Si faltan `VITE_SUPABASE_URL`/`VITE_SUPABASE_PUBLISHABLE_KEY`, la app desplegada arranca con `hasSupabase() === false`: sin mesas, sin bloc de notas ni pizarra (parece "versión vieja", pero es solo falta de env). Verifícalo con: `curl -s https://<worker>/assets/index-*.js | grep -c "kvobnkztrxqilqrhyxbz"` (0 = faltan).
 - `VITE_CHRONICLE_ALLOWLIST` está en `.env` pero **ya no se usa**: el allowlist (`src/lib/allowlist.js`) es código muerto, solo lo referencia su propio test. El acceso ahora es público con códigos de invitación. No lo reintroduzcas ni dependas de él.
 
 ## Arquitectura
