@@ -16,6 +16,7 @@ import { colorFromName, isLikelyEmbedded } from './lib/discord'
 import { deleteMyData, renameMember } from './lib/mesasApi'
 import { hasSupabase } from './lib/supabase'
 import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
+import { copyText } from './lib/clipboard'
 
 const Table3D = lazy(() => import('./components/Table3D'))
 
@@ -201,8 +202,8 @@ export default function App() {
               type="button"
               className="room"
               onClick={async () => {
-                await navigator.clipboard.writeText(window.location.href)
-                flash('Enlace copiado')
+                const ok = await copyText(window.location.href)
+                flash(ok ? 'Enlace copiado' : 'No se pudo copiar')
               }}
             >
               Sala {activity.roomId}
@@ -229,7 +230,7 @@ export default function App() {
           tab={tab}
           onTab={setTab}
           entries={log.entries}
-          onCopy={() => flash('Historial copiado')}
+          onCopy={(ok) => flash(ok ? 'Historial copiado' : 'No se pudo copiar')}
           persist={persist.enabled ? persist : null}
           playerId={activity.identity.id}
           mesa={archive.current}
@@ -257,8 +258,8 @@ export default function App() {
           }}
           onLeave={leaveTable}
           onCopyCode={async (code) => {
-            await navigator.clipboard.writeText(code)
-            flash('Código copiado')
+            const ok = await copyText(code)
+            flash(ok ? 'Código copiado' : 'No se pudo copiar')
           }}
         />
       </main>

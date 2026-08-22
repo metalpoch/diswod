@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { formatHistoryText } from '../lib/dice'
+import { copyText } from '../lib/clipboard'
 import LogEntry from './LogEntry'
 
 export default function GameLog({ entries, onCopy }) {
@@ -21,8 +22,8 @@ export default function GameLog({ entries, onCopy }) {
   const copy = async () => {
     const text = formatHistoryText(entries)
     if (!text) return
-    await navigator.clipboard.writeText(text)
-    onCopy?.()
+    const ok = await copyText(text)
+    onCopy?.(ok)
   }
 
   return (

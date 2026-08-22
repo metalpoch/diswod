@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { executeParsed, formatGenericLine, formatWodLine, rollGeneric, rollWod } from './dice'
+import { defaultRng, executeParsed, formatGenericLine, formatWodLine, rollGeneric, rollWod } from './dice'
 import { parseCommand } from './parser'
 
 function seq(values) {
@@ -9,6 +9,24 @@ function seq(values) {
     return copy.shift()
   }
 }
+
+describe('defaultRng', () => {
+  it('stays within bounds for common dice', () => {
+    for (const sides of [2, 4, 6, 8, 10, 12, 20, 100]) {
+      for (let i = 0; i < 200; i += 1) {
+        const value = defaultRng(sides)
+        expect(value).toBeGreaterThanOrEqual(1)
+        expect(value).toBeLessThanOrEqual(sides)
+      }
+    }
+  })
+
+  it('produces varied values for a d10', () => {
+    const seen = new Set()
+    for (let i = 0; i < 100; i += 1) seen.add(defaultRng(10))
+    expect(seen.size).toBeGreaterThanOrEqual(6)
+  })
+})
 
 describe('rollWod', () => {
   it('counts successes against difficulty', () => {

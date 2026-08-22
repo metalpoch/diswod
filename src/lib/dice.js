@@ -2,10 +2,17 @@ export function rollDie(sides, rng = defaultRng) {
   return rng(sides)
 }
 
+const UINT32_MAX = 0xffffffff
+
 export function defaultRng(sides) {
   const buf = new Uint32Array(1)
-  crypto.getRandomValues(buf)
-  return (buf[0] % sides) + 1
+  const limit = UINT32_MAX - (UINT32_MAX % sides)
+  let value
+  do {
+    crypto.getRandomValues(buf)
+    value = buf[0]
+  } while (value >= limit)
+  return (value % sides) + 1
 }
 
 export function rollWod(count, difficulty, rng = defaultRng) {
