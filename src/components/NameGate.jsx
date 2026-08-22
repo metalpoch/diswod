@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { colorFromName, randomRoom } from '../lib/discord'
 import Avatar from './Avatar'
+import LegalLinks from './LegalLinks'
 
 export default function NameGate({ participants, identity, onSubmit, embedded }) {
   const [name, setName] = useState(identity?.name || '')
@@ -76,9 +77,13 @@ export default function NameGate({ participants, identity, onSubmit, embedded })
             </>
           ) : null}
           <button type="submit" className="primary" disabled={embedded ? !selected : !name.trim()}>
-            Entrar en la crónica
+            Entrar (tengo 13+ / contenido 18+)
           </button>
         </form>
+        <p className="gate-age">
+          Al entrar confirmas la edad mínima de Discord (13+) y que el rol vampírico está pensado para 18+.
+        </p>
+        <LegalLinks />
       </div>
     </div>
   )

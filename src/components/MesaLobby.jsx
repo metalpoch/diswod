@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import LegalLinks from './LegalLinks'
 
 const KINDS = [
   { id: 'principal', label: 'Crónica principal' },
@@ -17,6 +18,7 @@ export default function MesaLobby({
   onArchive,
   onReopen,
   onSkip,
+  onErase,
 }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -142,8 +144,12 @@ export default function MesaLobby({
             <button type="button" className="ghost" onClick={onSkip}>
               Jugar sin guardar
             </button>
+            <button type="button" className="ghost" onClick={onErase}>
+              Borrar mis datos
+            </button>
           </form>
         </div>
+        <LegalLinks />
       </div>
     </div>
   )

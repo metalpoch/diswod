@@ -9,6 +9,7 @@ import { useGameLog } from './hooks/useGameLog'
 import { useMembers } from './hooks/useMembers'
 import { useMesas } from './hooks/useMesas'
 import { executeParsed, formatResultLine } from './lib/dice'
+import { deleteMyData } from './lib/mesasApi'
 import { hasSupabase } from './lib/supabase'
 import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
 
@@ -116,6 +117,17 @@ export default function App() {
         onArchive={archive.archive}
         onReopen={archive.reopen}
         onSkip={() => setSkipSave(true)}
+        onErase={async () => {
+          if (!window.confirm('¿Borrar tus notas, pizarra y mesas? Las tiradas quedarán anónimas.')) return
+          try {
+            await deleteMyData(activity.identity.id)
+            localStorage.removeItem('diswod.identity')
+            flash('Datos borrados')
+            window.setTimeout(() => window.location.reload(), 600)
+          } catch (err) {
+            flash(err.message || 'No se pudieron borrar los datos')
+          }
+        }}
       />
     )
   }

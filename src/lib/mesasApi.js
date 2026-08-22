@@ -303,3 +303,47 @@ export function mesaFromLocation() {
 export function codeFromLocation() {
   return normalizeInvite(new URLSearchParams(window.location.search).get('code') || '')
 }
+
+export async function deleteMyData(playerId) {
+  if (!supabase || !playerId) throw new Error('Falta identidad')
+
+  const { data: logs } = await supabase
+    .from('log_entries')
+    .select('id, payload')
+    .eq('player_id', playerId)
+  for (const row of logs || []) {
+    const payload = {
+      ...(row.payload || {}),
+      player: { id: 'deleted', name: 'Eliminado' },
+    }
+    await supabase
+      .from('log_entries')
+      .update({ payload, player_id: null, player_name: 'Eliminado' })
+      .eq('id', row.id)
+  }
+
+  const { data: memberships } = await supabase
+    .from('mesa_members')
+    .select('mesa_id, role')
+    .eq('player_id', playerId)
+
+  for (const row of memberships || []) {
+    if (row.role !== 'dm') continue
+    const { data: others } = await supabase
+      .from('mesa_members')
+      .select('player_id, role')
+      .eq('mesa_id', row.mesa_id)
+    const next = (others || []).find((m) => m.player_id !== playerId)
+    if (next) {
+      await supabase.from('mesa_members').update({ role: 'dm' }).eq('mesa_id', row.mesa_id).eq('player_id', next.player_id)
+      await supabase.from('mesas').update({ dm_id: next.player_id, updated_at: new Date().toISOString() }).eq('id', row.mesa_id)
+    }
+  }
+
+  const notes = await supabase.from('player_notes').delete().eq('player_id', playerId)
+  if (notes.error) throw notes.error
+  const boards = await supabase.from('player_boards').delete().eq('player_id', playerId)
+  if (boards.error) throw boards.error
+  const members = await supabase.from('mesa_members').delete().eq('player_id', playerId)
+  if (members.error) throw members.error
+}

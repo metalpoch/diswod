@@ -529,6 +529,13 @@ code {
   border: 1px solid var(--line);
   padding: 10px 12px;
 }
+.legal-links {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.legal-links a { color: var(--gold); }
+.gate-age { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
 .toast {
   position: fixed;
   bottom: 88px;

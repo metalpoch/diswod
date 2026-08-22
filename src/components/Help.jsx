@@ -28,6 +28,13 @@ export default function Help() {
           </ul>
           <p>WOD: los 10 explotan, los 1 anulan éxitos. Dificultad 2–10.</p>
           <p>Genérico: siempre con modificador (<code>/r 1d10+0</code>).</p>
+          <p>
+            <a href="/tos.html" target="_blank" rel="noreferrer">Condiciones</a>
+            {' · '}
+            <a href="/privacy.html" target="_blank" rel="noreferrer">Privacidad</a>
+            {' · '}
+            <a href="https://github.com/metalpoch/diswod/issues/new" target="_blank" rel="noreferrer">Soporte / denunciar</a>
+          </p>
         </div>
       )}
     </div>
