@@ -97,6 +97,7 @@ code {
 }
 
 .topbar, .app > main, .dice-panel, .toast { position: relative; z-index: 1; }
+.topbar { z-index: 10; }
 
 .topbar {
   display: flex;
@@ -534,9 +535,10 @@ code {
   right: 0;
   top: 38px;
   width: min(340px, 80vw);
-  background: #140808;
+  background: #160a0a;
   border: 1px solid var(--gold);
   padding: 12px;
+  color: var(--ink);
   box-shadow: var(--shadow);
   z-index: 5;
 }
@@ -544,6 +546,26 @@ code {
 .help-pop ul { margin: 0 0 8px; padding: 0; list-style: none; }
 .help-pop li { display: grid; gap: 2px; margin: 0 0 8px; font-size: 13px; }
 .help-pop p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.help-pop input {
+  width: 100%;
+  background: #0b0404;
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  margin: 8px 0;
+}
+.help-pop input:focus { border-color: var(--gold); }
+.help-pop .primary {
+  width: 100%;
+  min-height: 0;
+  padding: 8px 12px;
+  justify-content: center;
+}
+.name-btn {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .gate {
   display: grid;

@@ -75,7 +75,7 @@ export default function MesaLobby({
               id="invite-code"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="K7M2PQ"
+              placeholder="XXXXXX"
               maxLength={8}
               autoCapitalize="characters"
             />

@@ -103,6 +103,15 @@ export async function joinByCode(code, identity) {
   return { mesa, member }
 }
 
+export async function renameMember(mesaId, identity) {
+  const { error } = await supabase
+    .from('mesa_members')
+    .update({ player_name: identity.name, avatar: identity.avatar || null })
+    .eq('mesa_id', mesaId)
+    .eq('player_id', identity.id)
+  if (error) throw error
+}
+
 export async function listMembers(mesaId) {
   const { data, error } = await supabase
     .from('mesa_members')

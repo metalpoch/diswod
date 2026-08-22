@@ -3,13 +3,15 @@ import ChroniclePanel from './components/ChroniclePanel'
 import DicePanel from './components/DicePanel'
 import Help from './components/Help'
 import MesaLobby from './components/MesaLobby'
+import NameEdit from './components/NameEdit'
 import NameGate from './components/NameGate'
 import { useActivity } from './hooks/useActivity'
 import { useGameLog } from './hooks/useGameLog'
 import { useMembers } from './hooks/useMembers'
 import { useMesas } from './hooks/useMesas'
 import { executeParsed, formatResultLine } from './lib/dice'
-import { deleteMyData } from './lib/mesasApi'
+import { colorFromName } from './lib/discord'
+import { deleteMyData, renameMember } from './lib/mesasApi'
 import { hasSupabase } from './lib/supabase'
 import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
 
@@ -91,6 +93,19 @@ export default function App() {
     archive.close()
     setTab('log')
     flash('Has salido de la mesa')
+  }
+
+  const renameSelf = async (name) => {
+    const next = { ...activity.identity, name, color: colorFromName(name) }
+    activity.setIdentity(next)
+    if (persist.enabled) {
+      try {
+        await renameMember(persist.mesaId, next)
+        flash('Nombre actualizado')
+      } catch (err) {
+        flash(err.message || 'No se pudo actualizar el nombre en la mesa')
+      }
+    }
   }
 
   if (!activity.identity) {
@@ -192,6 +207,7 @@ export default function App() {
               : `Sala ${activity.roomId}`}
           </button>
           <Help />
+          <NameEdit identity={activity.identity} onRename={renameSelf} />
           <button type="button" className="ghost players-toggle" onClick={() => setShowLog((v) => !v)}>
             Panel
           </button>

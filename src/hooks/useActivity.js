@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  colorFromName,
   connectDiscord,
   loadIdentity,
   persistRoom,
@@ -44,8 +45,12 @@ export function useActivity() {
         if (!cancelled) setParticipants(people)
         unsub = subscribeParticipants(next, setParticipants)
         if (user) {
-          saveIdentity(user)
-          setIdentityState(user)
+          const prev = loadIdentity()
+          const merged = prev?.id === user.id && prev?.name
+            ? { ...user, name: prev.name, color: colorFromName(prev.name) }
+            : user
+          saveIdentity(merged)
+          setIdentityState(merged)
         }
         setStatus('discord')
       } catch {

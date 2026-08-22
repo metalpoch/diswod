@@ -62,7 +62,7 @@ export default function NameGate({ participants, identity, onSubmit, embedded })
         <form onSubmit={confirm}>
           {!embedded ? (
             <>
-              <label htmlFor="kindred-name">Nombre en mesa</label>
+              <label htmlFor="kindred-name">Tu nombre de jugador</label>
               <input
                 id="kindred-name"
                 value={name}
@@ -70,10 +70,13 @@ export default function NameGate({ participants, identity, onSubmit, embedded })
                   setName(e.target.value)
                   setSelected('')
                 }}
-                placeholder="Ej. Keiber"
+                placeholder=""
                 maxLength={32}
                 autoFocus
               />
+              <p className="gate-age">
+                El nombre de tu personaje se define dentro de la mesa, en la pestaña Notas.
+              </p>
             </>
           ) : null}
           <button type="submit" className="primary" disabled={embedded ? !selected : !name.trim()}>
