@@ -53,6 +53,7 @@ create table if not exists mesa_members (
   player_name text not null default '',
   avatar text,
   role text not null default 'visitor',
+  muted boolean not null default false,
   joined_at timestamptz not null default now(),
   primary key (mesa_id, player_id)
 );

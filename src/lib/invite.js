@@ -32,6 +32,7 @@ export function mapMember(row) {
     name: row.player_name,
     avatar: row.avatar || null,
     role: row.role,
+    muted: Boolean(row.muted),
     joined_at: row.joined_at,
   }
 }

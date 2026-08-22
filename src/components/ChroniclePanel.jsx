@@ -15,6 +15,7 @@ export default function ChroniclePanel({
   me,
   isDm,
   onSetRole,
+  onSetMuted,
   onKick,
   onLeave,
   onCopyCode,
@@ -44,6 +45,7 @@ export default function ChroniclePanel({
           isDm={isDm}
           onCopy={onCopyCode}
           onSetRole={onSetRole}
+          onSetMuted={onSetMuted}
           onKick={onKick}
           onLeave={onLeave}
         />

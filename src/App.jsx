@@ -78,6 +78,13 @@ export default function App() {
 
   const charName = persist.enabled ? party.me?.name || activity.identity?.name : activity.identity?.name
 
+  const dmId = persist.enabled ? archive.current?.dmId : ''
+  const dmOnline = !persist.enabled || !dmId
+    || activity.identity?.id === dmId
+    || log.remotes.some((r) => r.id === dmId)
+  const muted = Boolean(persist.enabled && party.me?.muted)
+  const rollBlocked = muted || !dmOnline
+
   const onRoll = async (parsed) => {
     const result = executeParsed(parsed)
     log.addEntry({
@@ -211,11 +218,11 @@ export default function App() {
               ? archive.current.inviteCode
               : `Sala ${activity.roomId}`}
           </button>
-          <Help />
           <NameEdit name={charName} onRename={renameSelf} />
           <button type="button" className="ghost players-toggle" onClick={() => setShowLog((v) => !v)}>
             Panel
           </button>
+          <Help />
         </div>
       </header>
 
@@ -246,6 +253,14 @@ export default function App() {
               flash(err.message || 'No se pudo cambiar el rol')
             }
           }}
+          onSetMuted={async (id, mutedFlag) => {
+            try {
+              await party.setMuted(id, mutedFlag)
+              flash(mutedFlag ? 'Jugador silenciado' : 'Jugador activado')
+            } catch (err) {
+              flash(err.message || 'No se pudo silenciar al jugador')
+            }
+          }}
           onKick={async (id) => {
             await party.kick(id)
             flash('Jugador expulsado')
@@ -258,7 +273,16 @@ export default function App() {
         />
       </main>
 
-      <DicePanel onRoll={onRoll} lastCommands={lastCommands} />
+      <DicePanel
+        onRoll={onRoll}
+        disabled={rollBlocked}
+        reason={muted
+          ? 'El Narrador te ha silenciado.'
+          : !dmOnline
+            ? 'El Narrador no está en línea. Las tiradas están en pausa.'
+            : ''}
+        lastCommands={lastCommands}
+      />
       {toast ? <div className="toast">{toast}</div> : null}
     </div>
   )

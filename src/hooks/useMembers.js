@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { kickMember, leaveMesa, listMembers, setMemberRole, subscribeMembers } from '../lib/mesasApi'
+import { kickMember, leaveMesa, listMembers, setMemberMuted, setMemberRole, subscribeMembers } from '../lib/mesasApi'
 
 export function useMembers(mesaId, identity) {
   const [members, setMembers] = useState([])
@@ -42,6 +42,7 @@ export function useMembers(mesaId, identity) {
     isDm: me?.role === 'dm',
     isPlayer: me?.role === 'dm' || me?.role === 'player',
     setRole: (playerId, role) => setMemberRole(mesaId, playerId, role, members),
+    setMuted: (playerId, muted) => setMemberMuted(mesaId, playerId, muted),
     kick: (playerId) => kickMember(mesaId, playerId),
     leave: () => leaveMesa(mesaId, identity, members),
   }

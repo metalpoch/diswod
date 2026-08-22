@@ -12,6 +12,7 @@ create table if not exists mesa_members (
   player_name text not null default '',
   avatar text,
   role text not null default 'visitor',
+  muted boolean not null default false,
   joined_at timestamptz not null default now(),
   primary key (mesa_id, player_id)
 );
@@ -33,3 +34,5 @@ set invite_code = upper(substr(replace(id::text, '-', ''), 1, 6))
 where invite_code is null;
 
 alter table player_notes drop column if exists character_name;
+
+alter table mesa_members add column if not exists muted boolean not null default false;

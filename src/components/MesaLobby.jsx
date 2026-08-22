@@ -36,7 +36,7 @@ export default function MesaLobby({
     if (!name.trim() || busy) return
     setBusy(true)
     try {
-      await onCreate({ name, description, kind, charName })
+      await onCreate({ name, description, kind })
     } finally {
       setBusy(false)
     }
@@ -69,19 +69,16 @@ export default function MesaLobby({
 
         {error ? <p className="hint bad">{error}</p> : null}
 
-        <div className="lobby-char">
+        <form className="lobby-join" onSubmit={join}>
           <label htmlFor="char-name">Tu personaje</label>
           <input
             id="char-name"
+            className="join-char"
             value={charName}
             onChange={(e) => setCharName(e.target.value)}
             maxLength={32}
             placeholder=""
           />
-          <p className="hint">El nombre de tu personaje en la mesa a la que entres. Puedes cambiarlo dentro.</p>
-        </div>
-
-        <form className="lobby-join" onSubmit={join}>
           <label htmlFor="invite-code">Código de invitación</label>
           <div className="join-row">
             <input

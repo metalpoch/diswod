@@ -10,6 +10,7 @@ export default function MembersPanel({
   isDm,
   onCopy,
   onSetRole,
+  onSetMuted,
   onKick,
   onLeave,
 }) {
@@ -41,7 +42,7 @@ export default function MembersPanel({
               <Avatar name={member.name} src={member.avatar} size={32} />
               <div>
                 <strong>{member.name}{mine ? ' (tú)' : ''}</strong>
-                <small>{LABELS[member.role] || member.role}</small>
+                <small>{LABELS[member.role] || member.role}{member.muted ? ' · silenciado' : ''}</small>
               </div>
               {isDm && !mine ? (
                 <div className="member-actions">
@@ -54,6 +55,9 @@ export default function MembersPanel({
                       Visitante
                     </button>
                   )}
+                  <button type="button" className="ghost" onClick={() => onSetMuted(member.player_id, !member.muted)}>
+                    {member.muted ? 'Activar' : 'Silenciar'}
+                  </button>
                   <button type="button" className="ghost" onClick={() => onKick(member.player_id)}>
                     Expulsar
                   </button>

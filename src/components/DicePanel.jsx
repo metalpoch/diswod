@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { parseCommand, previewCommand } from '../lib/parser'
 
-export default function DicePanel({ onRoll, disabled, lastCommands }) {
+export default function DicePanel({ onRoll, disabled, reason, lastCommands }) {
   const [value, setValue] = useState('')
   const [rolling, setRolling] = useState(false)
   const [cursor, setCursor] = useState(-1)
@@ -60,8 +60,8 @@ export default function DicePanel({ onRoll, disabled, lastCommands }) {
           autoComplete="off"
           aria-label="Comando de dados"
         />
-        <p className={parsed.ok ? 'hint ok' : value.trim() ? 'hint bad' : 'hint'}>
-          {value.trim() ? preview : 'WOD: /r 3d6  ·  Genérico: /r 1d10+4'}
+        <p className={disabled && reason ? 'hint bad' : parsed.ok ? 'hint ok' : value.trim() ? 'hint bad' : 'hint'}>
+          {disabled && reason ? reason : value.trim() ? preview : 'WOD: /r 3d6  ·  Genérico: /r 1d10+4'}
         </p>
       </div>
       <button type="submit" className={rolling ? 'lanzar is-rolling' : 'lanzar'} disabled={!canRoll}>

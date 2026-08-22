@@ -54,7 +54,7 @@ export async function getMesaByCode(code) {
   return mapMesa(data)
 }
 
-export async function createMesa({ name, description, kind, identity, charName }) {
+export async function createMesa({ name, description, kind, identity }) {
   const invite = await uniqueInvite()
   const { data, error } = await supabase
     .from('mesas')
@@ -70,7 +70,7 @@ export async function createMesa({ name, description, kind, identity, charName }
     .select('*')
     .single()
   if (error) throw error
-  await addMember(data.id, identity, 'dm', charName)
+  await addMember(data.id, identity, 'dm', 'Narrador')
   const mesa = mapMesa(data)
   const session = await createSession(mesa.id, 'Sesión 1')
   return setCurrentSession(mesa.id, session.id)
@@ -152,6 +152,15 @@ export async function setMemberRole(mesaId, playerId, role, members) {
   const { error } = await supabase
     .from('mesa_members')
     .update({ role })
+    .eq('mesa_id', mesaId)
+    .eq('player_id', playerId)
+  if (error) throw error
+}
+
+export async function setMemberMuted(mesaId, playerId, muted) {
+  const { error } = await supabase
+    .from('mesa_members')
+    .update({ muted })
     .eq('mesa_id', mesaId)
     .eq('player_id', playerId)
   if (error) throw error
