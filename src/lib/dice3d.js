@@ -131,12 +131,12 @@ export function faceNumberTexture(value, style) {
     ctx.font = faceFont(value)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'
-    for (const [dx, dy] of [[-1.5, -1.5], [1.5, -1.5], [-1.5, 1.5], [1.5, 1.5]]) {
-      ctx.fillText(String(value), 64 + dx, 68 + dy)
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'
+    for (const [dx, dy] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) {
+      ctx.fillText(String(value), 64 + dx, 64 + dy)
     }
     ctx.fillStyle = styleInk(style)
-    ctx.fillText(String(value), 64, 68)
+    ctx.fillText(String(value), 64, 64)
   })
 }
 
@@ -149,7 +149,7 @@ export function faceGlowTexture(value) {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = '#fff'
-    ctx.fillText(String(value), 64, 68)
+    ctx.fillText(String(value), 64, 64)
   })
 }
 
@@ -167,16 +167,16 @@ export function labelTexture(value, style) {
     ctx.clearRect(0, 0, 128, 128)
     ctx.fillStyle = styleBody(style)
     ctx.beginPath()
-    ctx.roundRect(10, 10, 108, 108, 20)
+    ctx.roundRect(6, 16, 116, 96, 16)
     ctx.fill()
-    ctx.strokeStyle = 'rgba(0,0,0,0.4)'
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'
     ctx.lineWidth = 4
     ctx.stroke()
-    ctx.font = faceFont(value)
+    ctx.font = labelFont(value)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = styleInk(style)
-    ctx.fillText(String(value), 64, 70)
+    ctx.fillText(String(value), 64, 68)
   })
 }
 
@@ -184,7 +184,7 @@ function createD10Geometry() {
   const verts = [[0, 0, 1], [0, 0, -1]]
   for (let i = 0; i < 10; i += 1) {
     const b = (i * Math.PI * 2) / 10
-    verts.push([Math.cos(b), Math.sin(b), 0.105 * (i % 2 ? 1 : -1)])
+    verts.push([Math.cos(b) * 0.78, Math.sin(b) * 0.78, 0.38 * (i % 2 ? 1 : -1)])
   }
   const faces = [
     [0, 2, 3], [0, 3, 4], [0, 4, 5], [0, 5, 6], [0, 6, 7],
@@ -203,7 +203,7 @@ function createD10Geometry() {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geo.computeVertexNormals()
   geo.center()
-  geo.scale(0.28, 0.34, 0.28)
+  geo.scale(0.34, 0.28, 0.34)
   return geo
 }
 
@@ -217,9 +217,15 @@ function rawGeometry(sides) {
 }
 
 function faceFont(value) {
-  if (value > 99) return '700 34px Cinzel, serif'
-  if (value > 9) return '700 44px Cinzel, serif'
-  return '700 58px Cinzel, serif'
+  if (value > 99) return '800 42px Cinzel, serif'
+  if (value > 9) return '800 54px Cinzel, serif'
+  return '800 68px Cinzel, serif'
+}
+
+function labelFont(value) {
+  if (value > 99) return '800 36px Cinzel, serif'
+  if (value > 9) return '800 46px Cinzel, serif'
+  return '800 58px Cinzel, serif'
 }
 
 const V = new THREE.Vector3()

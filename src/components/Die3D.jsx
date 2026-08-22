@@ -45,7 +45,7 @@ function D6({ style }) {
   }, [style])
   return (
     <mesh castShadow receiveShadow>
-      <boxGeometry args={[0.38, 0.38, 0.38]} />
+      <boxGeometry args={[0.42, 0.42, 0.42]} />
       {mats}
     </mesh>
   )
@@ -129,9 +129,9 @@ export default function Die3D({ die, play }) {
     <group ref={ref}>
       {die.sides === 6 ? <D6 style={die.style} /> : <Faces sides={die.sides} style={die.style} value={die.value} />}
       {done && (
-        <Billboard position={[0, 0.46, 0]}>
+        <Billboard position={[0, 0.44, 0]}>
           <mesh>
-            <planeGeometry args={[0.34, 0.34]} />
+            <planeGeometry args={[0.4, 0.26]} />
             <meshBasicMaterial map={label} transparent depthTest={false} />
           </mesh>
         </Billboard>
