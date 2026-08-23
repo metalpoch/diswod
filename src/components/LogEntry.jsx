@@ -1,6 +1,7 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { formatTime } from '../lib/dice'
 import Avatar from './Avatar'
+import Lightbox from './Lightbox'
 
 function Die({ die }) {
   const cls = [
@@ -45,15 +46,25 @@ function GenericDice({ dice, idPrefix }) {
   )
 }
 
-export default function LogEntry({ entry }) {
+export default function LogEntry({ entry, photo }) {
   const result = entry.result
   const isWod = result.type === 'wod'
   const isGeneric = result.type === 'generic'
   const isMulti = result.type === 'multi'
+  const [viewing, setViewing] = useState(false)
+  const full = photo || entry.player?.avatar
 
   return (
     <article className="entry">
-      <Avatar name={entry.player?.name} src={entry.player?.avatar} size={38} />
+      <button
+        type="button"
+        className="entry-avatar"
+        onClick={() => full && setViewing(true)}
+        disabled={!full}
+        title={full ? `Ver foto de ${entry.player?.name || 'jugador'}` : undefined}
+      >
+        <Avatar name={entry.player?.name} src={entry.player?.avatar} size={38} />
+      </button>
       <div className="entry-body">
         <header>
           <strong>{entry.player?.name || 'Desconocido'}</strong>
@@ -114,6 +125,9 @@ export default function LogEntry({ entry }) {
           </>
         ) : null}
       </div>
+      {viewing && full ? (
+        <Lightbox src={full} alt={entry.player?.name} onClose={() => setViewing(false)} />
+      ) : null}
     </article>
   )
 }

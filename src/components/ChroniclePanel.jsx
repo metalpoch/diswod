@@ -35,6 +35,9 @@ export default function ChroniclePanel({
   onAvatar,
   isOwn,
 }) {
+  const photos = Object.fromEntries(
+    (members || []).map((m) => [m.player_id, m.photo || m.avatar]),
+  )
   return (
     <aside className="chronicle">
       <nav className="chronicle-tabs">
@@ -49,7 +52,7 @@ export default function ChroniclePanel({
         ) : null}
       </nav>
       {tab === 'log' || !persist ? (
-        <GameLog entries={entries} onCopy={onCopy} />
+        <GameLog entries={entries} onCopy={onCopy} photos={photos} />
       ) : null}
       {persist && tab === 'ficha' ? (
         <>

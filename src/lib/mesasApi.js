@@ -167,10 +167,12 @@ export async function setMemberMuted(mesaId, playerId, muted) {
   if (error) throw error
 }
 
-export async function setMemberAvatar(mesaId, playerId, avatar) {
+export async function setMemberAvatar(mesaId, playerId, avatar, photo) {
+  const patch = { avatar }
+  if (photo !== undefined) patch.photo = photo
   const { error: memberError } = await supabase
     .from('mesa_members')
-    .update({ avatar })
+    .update(patch)
     .eq('mesa_id', mesaId)
     .eq('player_id', playerId)
   if (memberError) throw memberError

@@ -43,3 +43,11 @@ export async function uploadBackground(mesaId, file) {
   if (file.size > BG_MAX) throw new Error('La imagen debe pesar menos de 5 MB')
   return upload(`bg-${mesaId}-${Date.now()}.${extOf(file.name, 'jpg')}`, file)
 }
+
+export async function uploadPhoto(playerId, file) {
+  if (!supabase) throw new Error('Sin conexión con Supabase')
+  if (!file) throw new Error('Sin archivo')
+  if (!/^image\//.test(file.type)) throw new Error('El archivo debe ser una imagen')
+  if (file.size > BG_MAX) throw new Error('La imagen debe pesar menos de 5 MB')
+  return upload(`photo-${playerId}-${Date.now()}.${extOf(file.name, 'jpg')}`, file)
+}

@@ -15,7 +15,7 @@ import { useMesas } from './hooks/useMesas'
 import { useMusic } from './hooks/useMusic'
 import { useNpcs } from './hooks/useNpcs'
 import { useSheet } from './hooks/useSheet'
-import { uploadAvatar, uploadBackground, validAvatarFile } from './lib/avatar'
+import { uploadAvatar, uploadBackground, uploadPhoto, validAvatarFile } from './lib/avatar'
 import { executeParsed, formatResultLine } from './lib/dice'
 import { colorFromName, isLikelyEmbedded } from './lib/discord'
 import { deleteMyData, renameMember, setMemberAvatar, setMesaBackground } from './lib/mesasApi'
@@ -219,15 +219,19 @@ export default function App() {
     log.renamePlayer(next.id, name)
   }
 
-  const changeAvatar = async (file) => {
+  const changeAvatar = async (file, fullFile) => {
     const invalid = validAvatarFile(file)
     if (invalid) throw new Error(invalid)
     const url = await uploadAvatar(activity.identity.id, file)
+    let photoUrl
+    if (fullFile) {
+      photoUrl = await uploadPhoto(activity.identity.id, fullFile)
+    }
     activity.setIdentity({ ...activity.identity, avatar: url })
     log.setPlayerAvatar(activity.identity.id, url)
     if (persist.enabled) {
       try {
-        await setMemberAvatar(persist.mesaId, activity.identity.id, url)
+        await setMemberAvatar(persist.mesaId, activity.identity.id, url, photoUrl)
       } catch (err) {
         flash(err.message || 'La foto se subió pero no se guardó en la mesa')
       }

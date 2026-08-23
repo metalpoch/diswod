@@ -139,7 +139,7 @@ function SeatTag({ player, seat, self }) {
       <div className={self ? 'seat-tag is-self' : 'seat-tag'}>
         {player ? (
           <>
-            <Avatar name={player.name} src={player.avatar} size={26} />
+            <Avatar name={player.name} src={player.avatar} size={44} />
             <span>{player.name}</span>
           </>
         ) : (

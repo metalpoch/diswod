@@ -326,10 +326,10 @@ export default function CharacterSheet({
     reader.readAsDataURL(file)
   }
 
-  const confirmAvatar = async (file) => {
+  const confirmAvatar = async (avatarFile, fullFile) => {
     setCropSrc(null)
     try {
-      await onAvatar?.(file)
+      await onAvatar?.(avatarFile, fullFile)
     } catch (err) {
       setAvatarError(err.message || 'No se pudo subir la foto')
     }

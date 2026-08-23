@@ -3,7 +3,7 @@ import { formatHistoryText } from '../lib/dice'
 import { copyText } from '../lib/clipboard'
 import LogEntry from './LogEntry'
 
-export default function GameLog({ entries, onCopy }) {
+export default function GameLog({ entries, onCopy, photos }) {
   const scroller = useRef(null)
   const pin = useRef(true)
 
@@ -42,7 +42,7 @@ export default function GameLog({ entries, onCopy }) {
           </div>
         ) : (
           entries.map((entry) => (
-            <LogEntry key={entry.id} entry={entry} />
+            <LogEntry key={entry.id} entry={entry} photo={photos?.[entry.player?.id]} />
           ))
         )}
       </div>

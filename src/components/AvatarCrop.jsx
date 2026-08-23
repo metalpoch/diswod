@@ -3,6 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 const STAGE = 320
 const OUT = 256
 
+function toBlob(canvas) {
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+}
+
 export default function AvatarCrop({ src, onCancel, onConfirm }) {
   const [zoom, setZoom] = useState(1)
   const [off, setOff] = useState({ x: 0, y: 0 })
@@ -66,10 +70,20 @@ export default function AvatarCrop({ src, onCancel, onConfirm }) {
     ctx.beginPath()
     ctx.arc(OUT / 2, OUT / 2, OUT / 2, 0, Math.PI * 2)
     ctx.fill()
-    canvas.toBlob((blob) => {
-      if (blob) onConfirm(new File([blob], 'avatar.png', { type: 'image/png' }))
+
+    const fullCanvas = document.createElement('canvas')
+    const MAX = 1200
+    const scale = Math.min(1, MAX / Math.max(img.naturalWidth || 1, img.naturalHeight || 1))
+    fullCanvas.width = Math.max(1, Math.round((img.naturalWidth || 1) * scale))
+    fullCanvas.height = Math.max(1, Math.round((img.naturalHeight || 1) * scale))
+    fullCanvas.getContext('2d').drawImage(img, 0, 0, fullCanvas.width, fullCanvas.height)
+
+    Promise.all([toBlob(canvas), toBlob(fullCanvas)]).then(([avatarBlob, fullBlob]) => {
+      const avatarFile = avatarBlob ? new File([avatarBlob], 'avatar.png', { type: 'image/png' }) : null
+      const fullFile = fullBlob ? new File([fullBlob], 'retrato.png', { type: 'image/png' }) : null
+      onConfirm(avatarFile, fullFile)
       setBusy(false)
-    }, 'image/png')
+    })
   }
 
   return (

@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { seatedCount } from '../lib/invite'
 import Avatar from './Avatar'
+import Lightbox from './Lightbox'
 
 const LABELS = { dm: 'Narrador', player: 'Jugador', visitor: 'Visitante' }
 
@@ -15,6 +17,7 @@ export default function MembersPanel({
   onLeave,
 }) {
   const seated = seatedCount(members)
+  const [viewing, setViewing] = useState(null)
 
   return (
     <section className="tool-pane members-pane">
@@ -37,9 +40,18 @@ export default function MembersPanel({
       <ul className="member-list">
         {members.map((member) => {
           const mine = member.player_id === me?.player_id
+          const photo = member.photo || member.avatar
           return (
             <li key={member.player_id} className={mine ? 'is-self' : ''}>
-              <Avatar name={member.name} src={member.avatar} size={32} />
+              <button
+                type="button"
+                className="member-avatar"
+                onClick={() => photo && setViewing({ src: photo, alt: member.name })}
+                disabled={!photo}
+                title={photo ? `Ver foto de ${member.name}` : undefined}
+              >
+                <Avatar name={member.name} src={member.avatar} size={32} />
+              </button>
               <div>
                 <strong>{member.name}{mine ? ' (tú)' : ''}</strong>
                 <small>{LABELS[member.role] || member.role}{member.muted ? ' · silenciado' : ''}</small>
@@ -71,6 +83,10 @@ export default function MembersPanel({
       <button type="button" className="ghost" onClick={onLeave}>
         Salir de la mesa
       </button>
+
+      {viewing ? (
+        <Lightbox src={viewing.src} alt={viewing.alt} onClose={() => setViewing(null)} />
+      ) : null}
     </section>
   )
 }
