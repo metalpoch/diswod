@@ -16,6 +16,7 @@ function mapMesa(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     myRole: row.my_role || null,
+    backgroundUrl: row.background_url || '',
   }
 }
 
@@ -234,6 +235,17 @@ export async function setMesaStatus(id, status) {
   const { data, error } = await supabase
     .from('mesas')
     .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('*')
+    .single()
+  if (error) throw error
+  return mapMesa(data)
+}
+
+export async function setMesaBackground(id, backgroundUrl) {
+  const { data, error } = await supabase
+    .from('mesas')
+    .update({ background_url: backgroundUrl || '', updated_at: new Date().toISOString() })
     .eq('id', id)
     .select('*')
     .single()

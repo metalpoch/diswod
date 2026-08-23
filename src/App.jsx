@@ -10,14 +10,15 @@ import NameGate from './components/NameGate'
 import { useActivity } from './hooks/useActivity'
 import { useGameLog } from './hooks/useGameLog'
 import { useMembers } from './hooks/useMembers'
+import { useMesaBackground } from './hooks/useMesaBackground'
 import { useMesas } from './hooks/useMesas'
 import { useMusic } from './hooks/useMusic'
 import { useNpcs } from './hooks/useNpcs'
 import { useSheet } from './hooks/useSheet'
-import { uploadAvatar, validAvatarFile } from './lib/avatar'
+import { uploadAvatar, uploadBackground, validAvatarFile } from './lib/avatar'
 import { executeParsed, formatResultLine } from './lib/dice'
 import { colorFromName, isLikelyEmbedded } from './lib/discord'
-import { deleteMyData, renameMember, setMemberAvatar } from './lib/mesasApi'
+import { deleteMyData, renameMember, setMemberAvatar, setMesaBackground } from './lib/mesasApi'
 import { hasSupabase } from './lib/supabase'
 import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
 import { copyText } from './lib/clipboard'
@@ -52,6 +53,7 @@ export default function App() {
   const [panelW, setPanelW] = useState(380)
   const [dragging, setDragging] = useState(false)
   const mainRef = useRef(null)
+  const bgFileRef = useRef(null)
 
   const persist = persistOn && archive.current && !skipSave
     ? { enabled: true, mesaId: archive.current.id, sessionId: archive.current.currentSessionId }
@@ -62,6 +64,7 @@ export default function App() {
   const viewingPlayerId = sheetTarget || activity.identity?.id || ''
   const sheet = useSheet(persist.enabled ? persist.mesaId : '', viewingPlayerId)
   const npcs = useNpcs(persist.enabled ? persist.mesaId : '')
+  const backgroundUrl = useMesaBackground(persist.enabled ? persist.mesaId : '')
   const viewingOtherPlayer = viewingPlayerId !== activity.identity?.id
     && party.members.some((m) => m.player_id === viewingPlayerId)
   const sheetReadOnly = Boolean(persist.enabled && party.isDm && viewingOtherPlayer)
@@ -232,6 +235,26 @@ export default function App() {
     flash('Foto actualizada')
   }
 
+  const setBackground = async (file) => {
+    if (!file) return
+    try {
+      const url = await uploadBackground(persist.mesaId, file)
+      await setMesaBackground(persist.mesaId, url)
+      flash('Fondo de mesa actualizado')
+    } catch (err) {
+      flash(err.message || 'No se pudo subir el fondo')
+    }
+  }
+
+  const clearBackground = async () => {
+    try {
+      await setMesaBackground(persist.mesaId, '')
+      flash('Fondo de mesa quitado')
+    } catch (err) {
+      flash(err.message || 'No se pudo quitar el fondo')
+    }
+  }
+
   if (!isLikelyEmbedded() && !import.meta.env.DEV && import.meta.env.VITE_ALLOW_WEB !== '1') {
     return <DiscordOnly />
   }
@@ -371,6 +394,34 @@ export default function App() {
               Mesa 3D
             </button>
           ) : null}
+          {persist.enabled && party.isDm ? (
+            <>
+              <button
+                type="button"
+                className={backgroundUrl ? 'ghost is-on' : 'ghost'}
+                onClick={() => bgFileRef.current?.click()}
+                title="Subir una imagen de ubicación como fondo de la mesa"
+              >
+                Fondo
+              </button>
+              {backgroundUrl ? (
+                <button type="button" className="ghost" onClick={clearBackground} title="Quitar el fondo de la mesa">
+                  Quitar fondo
+                </button>
+              ) : null}
+              <input
+                ref={bgFileRef}
+                type="file"
+                accept="image/*"
+                className="file-hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  setBackground(file)
+                }}
+              />
+            </>
+          ) : null}
           <Help />
         </div>
       </header>
@@ -451,6 +502,7 @@ export default function App() {
             localId={activity.identity.id}
             localSeat={mySeat}
             showLabels={showDieLabels}
+            backgroundUrl={backgroundUrl}
           />
         </Suspense>
       </main>

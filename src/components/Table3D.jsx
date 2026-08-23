@@ -1,11 +1,44 @@
-import { useMemo, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { useEffect, useMemo, useRef } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import Die3D from './Die3D'
 import { feltTexture, planDice, woodTexture } from '../lib/dice3d'
 import { SEATS } from '../lib/seats'
 import Avatar from './Avatar'
+
+function Backdrop({ url }) {
+  const { scene, size } = useThree()
+  useEffect(() => {
+    if (!url) {
+      scene.background = new THREE.Color('#070303')
+      return undefined
+    }
+    let active = true
+    const loader = new THREE.TextureLoader()
+    loader.load(url, (texture) => {
+      if (!active) return
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.wrapS = THREE.ClampToEdgeWrapping
+      texture.wrapT = THREE.ClampToEdgeWrapping
+      const imgAspect = (texture.image?.width || 1) / (texture.image?.height || 1)
+      const screenAspect = size.width > 0 ? size.width / size.height : 1
+      if (imgAspect > screenAspect) {
+        texture.repeat.set(screenAspect / imgAspect, 1)
+      } else {
+        texture.repeat.set(1, imgAspect / screenAspect)
+      }
+      texture.offset.set((1 - texture.repeat.x) / 2, (1 - texture.repeat.y) / 2)
+      texture.needsUpdate = true
+      scene.background = texture
+    })
+    return () => {
+      active = false
+      scene.background = new THREE.Color('#070303')
+    }
+  }, [url, scene, size.width, size.height])
+  return null
+}
 
 function SeatCamera({ seat }) {
   const goal = useMemo(
@@ -52,10 +85,6 @@ function Furniture() {
   const felt = useMemo(() => feltTexture(), [])
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.62, 0]} receiveShadow>
-        <circleGeometry args={[18, 40]} />
-        <meshStandardMaterial color="#070303" roughness={1} />
-      </mesh>
       <mesh position={[0, -0.28, 0]} receiveShadow>
         <boxGeometry args={[7.35, 0.42, 4.55]} />
         <meshStandardMaterial map={wood} roughness={0.65} metalness={0.05} />
@@ -121,11 +150,11 @@ function SeatTag({ player, seat, self }) {
   )
 }
 
-function Scene({ seats, rolls, localSeat, showLabels }) {
+function Scene({ seats, rolls, localSeat, showLabels, backgroundUrl }) {
   return (
     <>
-      <color attach="background" args={['#070303']} />
-      <fog attach="fog" args={['#070303', 10, 22]} />
+      <Backdrop url={backgroundUrl} />
+      {!backgroundUrl ? <fog attach="fog" args={['#070303', 10, 22]} /> : null}
       <ambientLight intensity={0.22} color="#ffd8c0" />
       <hemisphereLight args={['#3a1515', '#070303', 0.35]} />
       <directionalLight
@@ -153,7 +182,7 @@ function Scene({ seats, rolls, localSeat, showLabels }) {
   )
 }
 
-export default function Table3D({ seats, entries, localId, localSeat, showLabels }) {
+export default function Table3D({ seats, entries, localId, localSeat, showLabels, backgroundUrl }) {
   const rolls = useMemo(() => {
     const latest = new Map()
     for (const entry of entries) {
@@ -179,7 +208,7 @@ export default function Table3D({ seats, entries, localId, localSeat, showLabels
         camera={{ fov: 36, position: SEATS[localSeat ?? 0].camera, near: 0.1, far: 60 }}
         gl={{ antialias: true, alpha: false }}
       >
-        <Scene seats={seats} rolls={rolls} localSeat={localSeat} showLabels={showLabels} />
+        <Scene seats={seats} rolls={rolls} localSeat={localSeat} showLabels={showLabels} backgroundUrl={backgroundUrl} />
       </Canvas>
       {localSeat == null && localId ? <p className="table-note">Mesa llena · ves la crónica como espectador</p> : null}
     </div>
