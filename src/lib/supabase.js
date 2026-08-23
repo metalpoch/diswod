@@ -5,6 +5,16 @@ const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
 
 export const supabase = url && key ? createClient(url, key) : null
 
+let supabaseHost = ''
+try { supabaseHost = url ? new URL(url).host : '' } catch { /* ignore */ }
+
+export function proxiedUrl(publicUrl) {
+  if (!publicUrl || !supabaseHost) return publicUrl || ''
+  if (publicUrl.startsWith(supabaseHost)) return '/supabase' + publicUrl.slice(supabaseHost.length)
+  if (publicUrl.includes(supabaseHost)) return publicUrl.replace(/^https?:\/\/[^/]+/, '/supabase')
+  return publicUrl
+}
+
 export function hasSupabase() {
   return Boolean(supabase)
 }

@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
 import { kickMember, leaveMesa, listMembers, setMemberMuted, setMemberRole, subscribeMembers } from '../lib/mesasApi'
+import { proxiedUrl } from '../lib/supabase'
+
+function proxyMembers(rows) {
+  return rows.map((m) => ({
+    ...m,
+    avatar: proxiedUrl(m.avatar),
+    photo: proxiedUrl(m.photo),
+  }))
+}
 
 export function useMembers(mesaId, identity) {
   const [members, setMembers] = useState([])
@@ -16,19 +25,19 @@ export function useMembers(mesaId, identity) {
     listMembers(mesaId)
       .then((rows) => {
         if (!active) return
-        setMembers(rows)
+        setMembers(proxyMembers(rows))
         setReady(true)
       })
       .catch(() => {
         if (active) setReady(false)
       })
     const stop = subscribeMembers(mesaId, (rows) => {
-      if (active) setMembers(rows)
+      if (active) setMembers(proxyMembers(rows))
     })
     const timer = window.setInterval(() => {
       listMembers(mesaId)
         .then((rows) => {
-          if (active) setMembers(rows)
+          if (active) setMembers(proxyMembers(rows))
         })
         .catch(() => {})
     }, 3000)

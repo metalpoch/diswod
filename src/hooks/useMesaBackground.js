@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getMesa } from '../lib/mesasApi'
+import { proxiedUrl } from '../lib/supabase'
 
 export function useMesaBackground(mesaId) {
   const [backgroundUrl, setBackgroundUrl] = useState('')
@@ -12,13 +13,13 @@ export function useMesaBackground(mesaId) {
     let active = true
     getMesa(mesaId)
       .then((mesa) => {
-        if (active) setBackgroundUrl(mesa.backgroundUrl || '')
+        if (active) setBackgroundUrl(proxiedUrl(mesa.backgroundUrl || ''))
       })
       .catch(() => {})
     const timer = window.setInterval(() => {
       getMesa(mesaId)
         .then((mesa) => {
-          if (active) setBackgroundUrl(mesa.backgroundUrl || '')
+          if (active) setBackgroundUrl(proxiedUrl(mesa.backgroundUrl || ''))
         })
         .catch(() => {})
     }, 3000)

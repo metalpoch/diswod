@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { loadLog, loadLogSince, saveLogEntry, subscribeLog } from '../lib/mesasApi'
 import { createGameSync } from '../lib/sync'
+import { proxiedUrl } from '../lib/supabase'
+
+function proxyEntry(entry) {
+  if (!entry?.player?.avatar) return entry
+  return { ...entry, player: { ...entry.player, avatar: proxiedUrl(entry.player.avatar) } }
+}
 
 function mergeEntries(left, right) {
   const map = new Map()
   for (const entry of [...left, ...right]) {
-    if (entry?.id) map.set(entry.id, entry)
+    if (entry?.id) map.set(entry.id, proxyEntry(entry))
   }
   return Array.from(map.values()).sort((a, b) => a.ts - b.ts)
 }

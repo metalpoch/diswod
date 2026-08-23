@@ -19,6 +19,7 @@ import { uploadAvatar, uploadBackground, uploadPhoto, validAvatarFile } from './
 import { executeParsed, formatResultLine } from './lib/dice'
 import { colorFromName, isLikelyEmbedded } from './lib/discord'
 import { deleteMyData, renameMember, setMemberAvatar, setMesaBackground } from './lib/mesasApi'
+import { proxiedUrl } from './lib/supabase'
 import { hasSupabase } from './lib/supabase'
 import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
 import { copyText } from './lib/clipboard'
@@ -222,10 +223,10 @@ export default function App() {
   const changeAvatar = async (file, fullFile) => {
     const invalid = validAvatarFile(file)
     if (invalid) throw new Error(invalid)
-    const url = await uploadAvatar(activity.identity.id, file)
+    const url = proxiedUrl(await uploadAvatar(activity.identity.id, file))
     let photoUrl
     if (fullFile) {
-      photoUrl = await uploadPhoto(activity.identity.id, fullFile)
+      photoUrl = proxiedUrl(await uploadPhoto(activity.identity.id, fullFile))
     }
     activity.setIdentity({ ...activity.identity, avatar: url })
     log.setPlayerAvatar(activity.identity.id, url)
@@ -242,7 +243,7 @@ export default function App() {
   const setBackground = async (file) => {
     if (!file) return
     try {
-      const url = await uploadBackground(persist.mesaId, file)
+      const url = proxiedUrl(await uploadBackground(persist.mesaId, file))
       await setMesaBackground(persist.mesaId, url)
       flash('Fondo de mesa actualizado')
     } catch (err) {
