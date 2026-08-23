@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Html } from '@react-three/drei'
+import { Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import Die3D from './Die3D'
 import { feltTexture, planDice, woodTexture } from '../lib/dice3d'
@@ -37,18 +37,6 @@ function Backdrop({ url }) {
       scene.background = new THREE.Color('#070303')
     }
   }, [url, scene, size.width, size.height])
-  return null
-}
-
-function SeatCamera({ seat }) {
-  const goal = useMemo(
-    () => new THREE.Vector3(...(SEATS[seat ?? 0]?.camera || SEATS[0].camera)),
-    [seat],
-  )
-  useFrame(({ camera }) => {
-    camera.position.lerp(goal, 0.06)
-    camera.lookAt(0, 0.15, 0)
-  })
   return null
 }
 
@@ -115,23 +103,6 @@ function Furniture() {
   )
 }
 
-function Chair({ seat }) {
-  const rest = SEATS[seat].rest
-  const yaw = Math.atan2(rest[0], rest[2])
-  return (
-    <group position={[rest[0] * 1.38, -0.15, rest[2] * 1.38]} rotation={[0, yaw + Math.PI, 0]}>
-      <mesh position={[0, 0.05, 0]} castShadow>
-        <boxGeometry args={[0.7, 0.12, 0.7]} />
-        <meshStandardMaterial color="#2a1410" roughness={0.7} />
-      </mesh>
-      <mesh position={[0, 0.48, 0.28]} castShadow>
-        <boxGeometry args={[0.7, 0.75, 0.1]} />
-        <meshStandardMaterial color="#2a1410" roughness={0.7} />
-      </mesh>
-    </group>
-  )
-}
-
 function SeatTag({ player, seat, self }) {
   const rest = SEATS[seat].rest
   return (
@@ -165,9 +136,7 @@ function Scene({ seats, rolls, localSeat, showLabels, backgroundUrl }) {
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
       />
-      <SeatCamera seat={localSeat} />
       <Furniture />
-      {SEATS.map((s) => <Chair key={s.id} seat={s.id} />)}
       {seats.map((player, i) => (
         <SeatTag key={i} player={player} seat={i} self={player?.self} />
       ))}
@@ -183,6 +152,7 @@ function Scene({ seats, rolls, localSeat, showLabels, backgroundUrl }) {
 }
 
 export default function Table3D({ seats, entries, localId, localSeat, showLabels, backgroundUrl }) {
+  const controlsRef = useRef(null)
   const rolls = useMemo(() => {
     const latest = new Map()
     for (const entry of entries) {
@@ -209,8 +179,24 @@ export default function Table3D({ seats, entries, localId, localSeat, showLabels
         gl={{ antialias: true, alpha: false }}
       >
         <Scene seats={seats} rolls={rolls} localSeat={localSeat} showLabels={showLabels} backgroundUrl={backgroundUrl} />
+        <OrbitControls
+          ref={controlsRef}
+          target={[0, 0.15, 0]}
+          enableRotate={false}
+          enablePan
+          enableZoom
+          minDistance={3.5}
+          maxDistance={26}
+          mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }}
+          touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN }}
+          makeDefault
+        />
       </Canvas>
       {localSeat == null && localId ? <p className="table-note">Mesa llena · ves la crónica como espectador</p> : null}
+      <button type="button" className="table-reset" onClick={() => controlsRef.current?.reset()} title="Restablecer la vista de la mesa">
+        Restablecer
+      </button>
+      <p className="table-hint">Arrastra para mover · rueda para hacer zoom</p>
     </div>
   )
 }
