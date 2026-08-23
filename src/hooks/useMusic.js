@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import { proxiedUrl } from '../lib/supabase'
 
 const STORAGE_KEY = 'diswod.music.muted'
 const DEFAULT_VOLUME = 0.12
+
+function getTrackUrl(track) {
+  if (!supabase) return ''
+  const { data } = supabase.storage.from('audio').getPublicUrl(track)
+  return proxiedUrl(data?.publicUrl || '')
+}
 
 export function useMusic() {
   const [ready, setReady] = useState(false)
@@ -32,7 +40,9 @@ export function useMusic() {
       const tracks = tracksRef.current
       if (!audio || !tracks.length) return
       indexRef.current = (indexRef.current + 1) % tracks.length
-      audio.src = `/audio/${encodeURI(tracks[indexRef.current])}`
+      const url = getTrackUrl(tracks[indexRef.current])
+      if (!url) return
+      audio.src = url
       audio.play().catch(() => {})
     }
 
@@ -65,7 +75,9 @@ export function useMusic() {
       audio.addEventListener('error', onError)
       audioRef.current = audio
       indexRef.current = 0
-      audio.src = `/audio/${encodeURI(tracks[0])}`
+      const url = getTrackUrl(tracks[0])
+      if (!url) return
+      audio.src = url
       setReady(true)
       audio.play().catch(() => { /* autoplay bloqueado; se reanuda al interactuar */ })
     }

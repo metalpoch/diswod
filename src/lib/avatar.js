@@ -10,7 +10,7 @@ function extOf(name, fallback) {
 async function upload(path, file) {
   const { error } = await supabase.storage
     .from('avatars')
-    .upload(path, file, { upsert: false, contentType: file.type })
+    .upload(path, file, { upsert: true, contentType: file.type })
   if (error) {
     const msg = String(error.message || error).toLowerCase()
     if (msg.includes('bucket not found') || msg.includes('not found') || msg.includes('bucket')) {
@@ -29,11 +29,11 @@ export function validAvatarFile(file) {
   return ''
 }
 
-export async function uploadAvatar(playerId, file) {
+export async function uploadAvatar(mesaId, playerId, file) {
   if (!supabase) throw new Error('Sin conexión con Supabase')
   const invalid = validAvatarFile(file)
   if (invalid) throw new Error(invalid)
-  return upload(`${playerId}-${Date.now()}.${extOf(file.name, 'png')}`, file)
+  return upload(`${mesaId}/${playerId}-avatar.${extOf(file.name, 'png')}`, file)
 }
 
 export async function uploadBackground(mesaId, file) {
@@ -41,13 +41,13 @@ export async function uploadBackground(mesaId, file) {
   if (!file) throw new Error('Sin archivo')
   if (!/^image\//.test(file.type)) throw new Error('El archivo debe ser una imagen')
   if (file.size > BG_MAX) throw new Error('La imagen debe pesar menos de 5 MB')
-  return upload(`bg-${mesaId}-${Date.now()}.${extOf(file.name, 'jpg')}`, file)
+  return upload(`${mesaId}/background.${extOf(file.name, 'jpg')}`, file)
 }
 
-export async function uploadPhoto(playerId, file) {
+export async function uploadPhoto(mesaId, playerId, file) {
   if (!supabase) throw new Error('Sin conexión con Supabase')
   if (!file) throw new Error('Sin archivo')
   if (!/^image\//.test(file.type)) throw new Error('El archivo debe ser una imagen')
   if (file.size > BG_MAX) throw new Error('La imagen debe pesar menos de 5 MB')
-  return upload(`photo-${playerId}-${Date.now()}.${extOf(file.name, 'jpg')}`, file)
+  return upload(`${mesaId}/photo-${playerId}.${extOf(file.name, 'jpg')}`, file)
 }

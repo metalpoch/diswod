@@ -223,10 +223,10 @@ export default function App() {
   const changeAvatar = async (file, fullFile) => {
     const invalid = validAvatarFile(file)
     if (invalid) throw new Error(invalid)
-    const url = proxiedUrl(await uploadAvatar(activity.identity.id, file))
+    const url = proxiedUrl(await uploadAvatar(persist.mesaId, activity.identity.id, file))
     let photoUrl
     if (fullFile) {
-      photoUrl = proxiedUrl(await uploadPhoto(activity.identity.id, fullFile))
+      photoUrl = proxiedUrl(await uploadPhoto(persist.mesaId, activity.identity.id, fullFile))
     }
     activity.setIdentity({ ...activity.identity, avatar: url })
     log.setPlayerAvatar(activity.identity.id, url)
