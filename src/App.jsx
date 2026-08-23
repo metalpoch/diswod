@@ -67,8 +67,7 @@ export default function App() {
     [persist.enabled, party.members, players, activity.identity],
   )
   const setIdentity = activity.setIdentity
-  const othersPresent = players.some((p) => p.id && p.id !== activity.identity?.id)
-  const music = useMusic(othersPresent)
+  const music = useMusic()
 
   useEffect(() => {
     if (persist.enabled) return

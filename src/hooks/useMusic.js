@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
 const STORAGE_KEY = 'diswod.music.muted'
-const DEFAULT_VOLUME = 0.06
+const DEFAULT_VOLUME = 0.15
 
-export function useMusic(hasOthers) {
+export function useMusic() {
   const [ready, setReady] = useState(false)
   const [muted, setMuted] = useState(() => {
     try { return localStorage.getItem(STORAGE_KEY) === '1' } catch { return false }
@@ -12,41 +12,10 @@ export function useMusic(hasOthers) {
   const tracksRef = useRef([])
   const indexRef = useRef(0)
   const mutedRef = useRef(muted)
-  const activeRef = useRef(Boolean(hasOthers))
-  const baseVolumeRef = useRef(DEFAULT_VOLUME)
-  const fadeRef = useRef(null)
 
-  const stopFade = () => {
-    if (fadeRef.current) {
-      clearInterval(fadeRef.current)
-      fadeRef.current = null
-    }
-  }
-
-  const resumeMusic = () => {
-    stopFade()
+  const ensurePlaying = () => {
     const audio = audioRef.current
-    if (!audio) return
-    audio.volume = baseVolumeRef.current
-    if (audio.paused) audio.play().catch(() => {})
-  }
-
-  const pauseMusic = () => {
-    stopFade()
-    const audio = audioRef.current
-    if (!audio || audio.paused) return
-    const startVol = audio.volume
-    const start = performance.now()
-    const dur = 500
-    fadeRef.current = window.setInterval(() => {
-      const t = Math.min(1, (performance.now() - start) / dur)
-      audio.volume = Math.max(0, startVol * (1 - t))
-      if (t >= 1) {
-        clearInterval(fadeRef.current)
-        fadeRef.current = null
-        audio.pause()
-      }
-    }, 40)
+    if (audio && tracksRef.current.length && audio.paused) audio.play().catch(() => {})
   }
 
   useEffect(() => {
@@ -56,16 +25,9 @@ export function useMusic(hasOthers) {
   }, [muted])
 
   useEffect(() => {
-    activeRef.current = Boolean(hasOthers)
-    if (hasOthers) resumeMusic()
-    else pauseMusic()
-  }, [hasOthers])
-
-  useEffect(() => {
     let cancelled = false
 
     const playNext = () => {
-      if (!activeRef.current) return
       const audio = audioRef.current
       const tracks = tracksRef.current
       if (!audio || !tracks.length) return
@@ -75,13 +37,11 @@ export function useMusic(hasOthers) {
     }
 
     const onError = () => {
-      if (cancelled || !activeRef.current) return
+      if (cancelled) return
       window.setTimeout(playNext, 1500)
     }
 
-    const onGesture = () => {
-      if (activeRef.current) resumeMusic()
-    }
+    const onGesture = () => ensurePlaying()
 
     async function boot() {
       let tracks = []
@@ -97,7 +57,6 @@ export function useMusic(hasOthers) {
       if (cancelled || !tracks.length) return
 
       tracksRef.current = tracks
-      baseVolumeRef.current = volume
       const audio = new Audio()
       audio.volume = volume
       audio.muted = mutedRef.current
@@ -108,7 +67,7 @@ export function useMusic(hasOthers) {
       indexRef.current = 0
       audio.src = `/audio/${encodeURI(tracks[0])}`
       setReady(true)
-      if (activeRef.current) audio.play().catch(() => { /* autoplay bloqueado; se reanuda al interactuar */ })
+      audio.play().catch(() => { /* autoplay bloqueado; se reanuda al interactuar */ })
     }
 
     window.addEventListener('pointerdown', onGesture)
@@ -117,7 +76,6 @@ export function useMusic(hasOthers) {
 
     return () => {
       cancelled = true
-      stopFade()
       window.removeEventListener('pointerdown', onGesture)
       window.removeEventListener('keydown', onGesture)
       const audio = audioRef.current
@@ -133,7 +91,7 @@ export function useMusic(hasOthers) {
 
   const toggleMuted = () => {
     setMuted((m) => !m)
-    if (activeRef.current) resumeMusic()
+    ensurePlaying()
   }
 
   return { ready, muted, toggleMuted }
