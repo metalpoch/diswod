@@ -12,6 +12,7 @@ import { useGameLog } from './hooks/useGameLog'
 import { useMembers } from './hooks/useMembers'
 import { useMesas } from './hooks/useMesas'
 import { useMusic } from './hooks/useMusic'
+import { useSheet } from './hooks/useSheet'
 import { executeParsed, formatResultLine } from './lib/dice'
 import { colorFromName, isLikelyEmbedded } from './lib/discord'
 import { deleteMyData, renameMember } from './lib/mesasApi'
@@ -45,6 +46,7 @@ export default function App() {
   const [tab, setTab] = useState('log')
   const isMobile = useIsMobile()
   const [showTable, setShowTable] = useState(!isMobile)
+  const [sheetTarget, setSheetTarget] = useState(null)
 
   const persist = persistOn && archive.current && !skipSave
     ? { enabled: true, mesaId: archive.current.id, sessionId: archive.current.currentSessionId }
@@ -52,6 +54,11 @@ export default function App() {
   const roomId = persist.enabled ? `mesa-${persist.mesaId}` : activity.roomId
   const log = useGameLog(roomId, activity.identity, persist)
   const party = useMembers(persist.enabled ? persist.mesaId : '', activity.identity)
+  const viewingPlayerId = sheetTarget || activity.identity?.id || ''
+  const sheet = useSheet(persist.enabled ? persist.mesaId : '', viewingPlayerId)
+  const sheetReadOnly = Boolean(
+    persist.enabled && party.isDm && viewingPlayerId && viewingPlayerId !== activity.identity?.id,
+  )
 
   const players = useMemo(
     () => activity.mergePlayers(log.remotes),
@@ -125,6 +132,18 @@ export default function App() {
       command: parsed.command,
       result,
       line: formatResultLine(result),
+    })
+  }
+
+  const onSheetRoll = ({ count, difficulty, description }) => {
+    if (!count) return
+    onRoll({
+      ok: true,
+      type: 'wod',
+      count,
+      difficulty,
+      description,
+      command: `/r ${count}d${difficulty}${description ? ` ${description}` : ''}`,
     })
   }
 
@@ -330,6 +349,14 @@ export default function App() {
             const ok = await copyText(code)
             flash(ok ? 'Código copiado' : 'No se pudo copiar')
           }}
+          sheet={sheet.data}
+          sheetStatus={sheet.status}
+          sheetReadOnly={sheetReadOnly}
+          sheetTarget={sheetTarget}
+          onSheetTarget={setSheetTarget}
+          onSheetChange={sheet.update}
+          onSheetRoll={onSheetRoll}
+          rollDisabled={rollBlocked}
         />
         <Suspense fallback={<div className="table-stage" />}>
           <Table3D
@@ -358,6 +385,7 @@ export default function App() {
               await renameMember(persist.mesaId, activity.identity.id, name)
               log.renamePlayer(activity.identity.id, name)
               archive.dismissCharName()
+              setTab('ficha')
               flash(`Bienvenido, ${name}`)
             } catch (err) {
               flash(err.message || 'No se pudo guardar el nombre')

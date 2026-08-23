@@ -35,13 +35,21 @@ Flujo de prueba: commit en `dev` → auto-deploy al workers.dev → probar en na
 
 - `src/App.jsx` es el orquestador; el resto son piezas.
 - `src/lib/`: `parser.js` (parsing de comandos), `dice.js` (tiradas WOD/genéricas), `seats.js` (asientos), `invite.js` (códigos/roles), `discord.js` (SDK Discord), `sync.js` (Yjs/y-webrtc), `supabase.js` (cliente), `mesasApi.js` (todas las llamadas a Supabase), `dice3d.js` (geometrías/texturas 3D de los dados + `planDice`/`quatForValue`), `clipboard.js` (`copyText` con fallback `execCommand` para el sandbox).
-- `src/hooks/`: `useActivity` (boot del SDK Discord), `useMesas`, `useMembers`, `useGameLog` (fusiona log vivo + persistido).
+- `src/hooks/`: `useActivity` (boot del SDK Discord), `useMesas`, `useMembers`, `useGameLog` (fusiona log vivo + persistido), `useMusic` (música de fondo en bucle).
 - `Table3D` se carga con `React.lazy` (code-split de three.js). No lo importes estáticamente.
 
 ## Dados 3D
 
 - El d10 es un **trapezoedro pentagonal** de 10 kites coplanares (`createD10Geometry` usa `h = tan²(π/10)` para la planitud exacta), con caras opuestas que suman 11. Los triángulos deben estar enrollados **hacia afuera** o las caras se culling por backface (ya hubo ese bug). `src/lib/dice3d.test.js` verifica conteo de caras, opuestos suman 11 y winding; añade un test si tocas geometría.
 - El "valor cara arriba" lo hace `quatForValue(sides, value)` (rota la cara cuyo `valueByFace` coincide hacia `UP`). El d6 usa un cubo con números (antes pips), no `faceDataFor`.
+- Los **dados extra por 10s** (`die.exploded`) se marcan aparte: en 3D `dieStyle` devuelve `'extra'` (estilo violeta en `styleMaps`) antes que `gold`, y en el gamelog se separan de los dados base con un chip `⟳ +N` (`LogEntry.jsx`).
+
+## Música de fondo
+
+- `src/hooks/useMusic.js` (`useMusic()` en `App.jsx`) lee `/audio/manifest.json` en runtime y encadena las pistas de `tracks` una tras otra, en bucle infinito.
+- Para añadir/quitar pistas: suelta los `.mp3/.ogg` en `public/audio/` y listalos en `public/audio/manifest.json` (`tracks` + `volume`). El `volume` del manifest manda; el `DEFAULT_VOLUME` del hook es solo fallback. Los mp3 están commiteados (~38 MB) y se sirven same-origin desde el worker (sin URL Mapping extra).
+- **El autoplay con sonido está bloqueado por el navegador hasta el primer clic**: el hook reintenta en el primer `pointerdown`/`keydown`. Es comportamiento esperado, no un bug a "arreglar".
+- Mute **individual por jugador** (botón "♪ Música ON/OFF" del topbar), persistido en `localStorage` (`diswod.music.muted`). No hay sync de música entre clientes.
 
 ## Identidad y nombres
 
@@ -63,13 +71,22 @@ No existe "nombre de jugador" global. El modelo actual:
 - **El sandbox de Discord bloquea y-webrtc** (los signaling servers `signaling.yjs.dev`/heroku no están en URL Mappings): la presencia Yjs no sincroniza ahí dentro. Por eso la presencia del Narrador usa `activity.participants` (eventos nativos `ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE`, funcionan en el sandbox).
 - **Supabase Realtime tampoco es fiable en el sandbox** (el WebSocket puede no llegar por el proxy de Discord). Por eso `useGameLog` y `useMembers` hacen **polling REST** cada ~2.5–3 s como fallback (`loadLogSince` con solape de 1 s, `listMembers`). El realtime sigue suscrito como vía rápida cuando funciona. No elimines el polling.
 
+## Ficha de personaje
+
+- Pestaña **Ficha** en el panel crónica (`CharacterSheet.jsx`), solo con mesa persistida. Datos por `(mesa_id, player_id)` en `player_sheets` (jsonb), igual que `player_notes`/`player_boards`.
+- Estructura de la hoja (V20) en `src/lib/characterSheet.js`: `defaultSheet()` + `normalizeSheet()` (merge con defaults para no romper filas viejas; migra stats numéricos viejos a `{v, spec}`). Al editar se guarda con debounce en `useSheet` (`src/hooks/useSheet.js`).
+- Los campos con **autocompletado** (Naturaleza, Conducta, Concepto, Clan, Generación, Senda, Porte, Disciplinas, Trasfondos, Méritos, Defectos y **Especialidades** de cada atributo/habilidad) usan combobox (`<input list>` + `<datalist>`); las listas exactas están en `src/lib/sheetOptions.js`, **extraídas de `mocks/WOD_Editable.pdf`** (no editar a mano; regenerar con el script de extracción). El coste de Méritos/Defectos es manual. Defaults del PDF: Senda "Humanidad", Porte "Resolución", Virtudes Conciencia/Autocontrol (alternables a Convicción/Instinto).
+- **Tiradas desde la ficha**: clic en el dado (⚄) de una stat tira `valor d dificultad`; clic en el *nombre* acumula stats en una reserva combinada (p. ej. Destreza + Alerta para iniciativa). La **dificultad** la elige el jugador en la propia ficha (la "dice" el Narrador); no se guarda en mesa.
+- **El Narrador ve todas las fichas** (solo lectura) con el selector de la pestaña Ficha (`sheetTarget` en `App.jsx`). Los jugadores solo ven/editando la suya.
+- Al aceptar el `CharacterGate` (jugador nuevo) se salta a la pestaña Ficha (`setTab('ficha')`).
+
 ## Supabase
 
-- `supabase/schema.sql` = esquema completo (tablas + RLS + publicación realtime). `supabase/migration_members.sql` = incremental para instalaciones previas.
+- `supabase/schema.sql` = esquema completo (tablas + RLS + publicación realtime). Migraciones incrementales: `supabase/migration_members.sql`, `supabase/migration_sheets.sql` (tabla `player_sheets`).
 - El RLS es `using (true)` (abierto a propósito). No lo "endurezcas" sin hablar con el usuario.
 - El `roomId` de sync es `mesa-<mesaId>` cuando hay mesa persistida, si no `activity.roomId`.
 - **Tú NO puedes ejecutar DDL**: el agente solo tiene la publishable key (REST). Los cambios de schema (`muted` en `mesa_members`, drop de `character_name` en `player_notes`) están en los archivos `.sql`; recuérdale al usuario correrlos en el SQL Editor de Supabase.
-- **Sí puedes borrar filas por REST** (así se limpia la BD). DELETE con header `apikey`/`Authorization: Bearer <publishable key>` a `$VITE_SUPABASE_URL/rest/v1/<tabla>?<filtro>`. Las tablas con `id` uuid usan `id=gt.00000000-0000-0000-0000-000000000000`; las de clave compuesta (`player_notes`, `player_boards`, `mesa_members`) usan `mesa_id=not.is.null` (un filtro con `id` da 400). Verifica con `select=count` + header `Prefer: count=exact`.
+- **Sí puedes borrar filas por REST** (así se limpia la BD). DELETE con header `apikey`/`Authorization: Bearer <publishable key>` a `$VITE_SUPABASE_URL/rest/v1/<tabla>?<filtro>`. Las tablas con `id` uuid usan `id=gt.00000000-0000-0000-0000-000000000000`; las de clave compuesta (`player_notes`, `player_boards`, `player_sheets`, `mesa_members`) usan `mesa_id=not.is.null` (un filtro con `id` da 400). Verifica con `select=count` + header `Prefer: count=exact`.
 
 ## Discord Activity (gotchas del portal)
 

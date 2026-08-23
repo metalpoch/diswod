@@ -305,6 +305,27 @@ export async function saveNotes(mesaId, playerId, body) {
   if (error) throw error
 }
 
+export async function loadSheet(mesaId, playerId) {
+  const { data, error } = await supabase
+    .from('player_sheets')
+    .select('data')
+    .eq('mesa_id', mesaId)
+    .eq('player_id', playerId)
+    .maybeSingle()
+  if (error) throw error
+  return data || { data: null }
+}
+
+export async function saveSheet(mesaId, playerId, data) {
+  const { error } = await supabase.from('player_sheets').upsert({
+    mesa_id: mesaId,
+    player_id: playerId,
+    data,
+    updated_at: new Date().toISOString(),
+  })
+  if (error) throw error
+}
+
 export async function loadBoard(mesaId, playerId) {
   const { data, error } = await supabase
     .from('player_boards')

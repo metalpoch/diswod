@@ -58,6 +58,14 @@ create table if not exists mesa_members (
   primary key (mesa_id, player_id)
 );
 
+create table if not exists player_sheets (
+  mesa_id uuid not null references mesas(id) on delete cascade,
+  player_id text not null,
+  data jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (mesa_id, player_id)
+);
+
 create index if not exists log_entries_mesa_ts on log_entries (mesa_id, ts);
 create index if not exists sessions_mesa on sessions (mesa_id, started_at);
 create index if not exists mesa_members_player on mesa_members (player_id);
@@ -69,6 +77,7 @@ alter table log_entries enable row level security;
 alter table player_notes enable row level security;
 alter table player_boards enable row level security;
 alter table mesa_members enable row level security;
+alter table player_sheets enable row level security;
 
 drop policy if exists mesas_all on mesas;
 drop policy if exists sessions_all on sessions;
@@ -76,6 +85,7 @@ drop policy if exists log_entries_all on log_entries;
 drop policy if exists player_notes_all on player_notes;
 drop policy if exists player_boards_all on player_boards;
 drop policy if exists mesa_members_all on mesa_members;
+drop policy if exists player_sheets_all on player_sheets;
 
 create policy mesas_all on mesas for all using (true) with check (true);
 create policy sessions_all on sessions for all using (true) with check (true);
@@ -83,6 +93,7 @@ create policy log_entries_all on log_entries for all using (true) with check (tr
 create policy player_notes_all on player_notes for all using (true) with check (true);
 create policy player_boards_all on player_boards for all using (true) with check (true);
 create policy mesa_members_all on mesa_members for all using (true) with check (true);
+create policy player_sheets_all on player_sheets for all using (true) with check (true);
 
 do $$ begin
   alter publication supabase_realtime add table log_entries;
@@ -98,5 +109,9 @@ exception when duplicate_object then null;
 end $$;
 do $$ begin
   alter publication supabase_realtime add table mesa_members;
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  alter publication supabase_realtime add table player_sheets;
 exception when duplicate_object then null;
 end $$;
