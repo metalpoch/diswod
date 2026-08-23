@@ -30,29 +30,35 @@ describe('defaultRng', () => {
 
 describe('rollWod', () => {
   it('counts successes against difficulty', () => {
-    const result = rollWod(3, 5, seq([8, 6, 5]))
+    const result = rollWod(3, 5, false, seq([8, 6, 5]))
     expect(result.successes).toBe(3)
     expect(result.failures).toBe(0)
     expect(formatWodLine({ ...result, description: '' })).toBe('Roll: [8, 6, 5] = 3 successes (0 failures)')
   })
 
   it('uses description in the line', () => {
-    const result = rollWod(3, 5, seq([8, 6, 5]))
+    const result = rollWod(3, 5, false, seq([8, 6, 5]))
     expect(formatWodLine({ ...result, description: 'Ataque con espada' })).toBe(
       'Ataque con espada: [8, 6, 5] = 3 successes (0 failures)',
     )
   })
 
-  it('explodes tens and cancels ones', () => {
-    const result = rollWod(2, 6, seq([10, 1, 8]))
-    expect(result.values).toEqual([10, 1, 8])
+  it('counts a specialty 10 as two successes', () => {
+    const result = rollWod(2, 6, true, seq([10, 1]))
     expect(result.rawSuccesses).toBe(2)
+    expect(result.ones).toBe(1)
     expect(result.successes).toBe(1)
-    expect(result.dice[2].exploded).toBe(true)
+  })
+
+  it('counts a normal 10 as one success (no explosion)', () => {
+    const result = rollWod(2, 6, false, seq([10, 1]))
+    expect(result.values).toEqual([10, 1])
+    expect(result.rawSuccesses).toBe(1)
+    expect(result.successes).toBe(0)
   })
 
   it('flags a botch when there are ones and no successes', () => {
-    const result = rollWod(3, 8, seq([1, 2, 3]))
+    const result = rollWod(3, 8, false, seq([1, 2, 3]))
     expect(result.botch).toBe(true)
     expect(result.successes).toBe(0)
   })

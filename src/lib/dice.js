@@ -15,32 +15,20 @@ export function defaultRng(sides) {
   return (value % sides) + 1
 }
 
-export function rollWod(count, difficulty, rng = defaultRng) {
+export function rollWod(count, difficulty, specialty = false, rng = defaultRng) {
   const dice = []
-  let pending = count
-  let guard = 0
-
-  while (pending > 0 && guard < 200) {
-    let exploded = 0
-    for (let i = 0; i < pending; i += 1) {
-      const value = rollDie(10, rng)
-      const success = value >= difficulty
-      const isTen = value === 10
-      const isOne = value === 1
-      dice.push({
-        value,
-        success,
-        isTen,
-        isOne,
-        exploded: guard > 0,
-      })
-      if (isTen) exploded += 1
-    }
-    pending = exploded
-    guard += 1
+  for (let i = 0; i < count; i += 1) {
+    const value = rollDie(10, rng)
+    const isTen = value === 10
+    const isOne = value === 1
+    const success = value >= difficulty
+    dice.push({ value, success, isTen, isOne })
   }
 
-  const rawSuccesses = dice.filter((d) => d.success).length
+  const rawSuccesses = dice.reduce(
+    (acc, d) => acc + (d.isTen && specialty ? 2 : d.success ? 1 : 0),
+    0,
+  )
   const ones = dice.filter((d) => d.isOne).length
   const failures = dice.filter((d) => !d.success).length
   const successes = Math.max(0, rawSuccesses - ones)
@@ -50,6 +38,7 @@ export function rollWod(count, difficulty, rng = defaultRng) {
     type: 'wod',
     count,
     difficulty,
+    specialty,
     dice,
     values: dice.map((d) => d.value),
     successes,
@@ -76,7 +65,7 @@ export function rollGeneric(count, sides, modifier, rng = defaultRng) {
 
 export function rollMulti(pools, rng = defaultRng) {
   const rolled = pools.map((pool) => (pool.type === 'wod'
-    ? rollWod(pool.count, pool.difficulty, rng)
+    ? rollWod(pool.count, pool.difficulty, pool.specialty, rng)
     : rollGeneric(pool.count, pool.sides, pool.modifier, rng)))
   const allWod = rolled.every((r) => r.type === 'wod')
   const allGeneric = rolled.every((r) => r.type === 'generic')
@@ -104,7 +93,7 @@ export function executeParsed(parsed, rng = defaultRng) {
   }
   if (parsed.type === 'wod') {
     return {
-      ...rollWod(parsed.count, parsed.difficulty, rng),
+      ...rollWod(parsed.count, parsed.difficulty, parsed.specialty, rng),
       description: parsed.description,
       command: parsed.command,
     }

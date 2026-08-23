@@ -40,15 +40,15 @@ Flujo de prueba: commit en `dev` → auto-deploy al workers.dev → probar en na
 
 ## Tiradas (formato de comandos)
 
-- `src/lib/parser.js` acepta: genérico `NdS` (suma de N dados de S caras), WOD `NwodD` (N d10 vs dificultad D), modificador en genérico (`NdS+M` / `NdS-M`), y **suma de reservas** con `+` (`/r 4wod6 + 3wod8`).
+- `src/lib/parser.js` acepta: genérico `NdS` (suma de N dados de S caras), WOD `NwodD` (N d10 vs dificultad D), **especialidad** con `!` (`/r 4wod6!`), modificador en genérico (`NdS+M` / `NdS-M`), y **suma de reservas** con `+` (`/r 4wod6 + 3wod8`).
 - **Cambio de formato (breaking)**: antes `NdM` era WOD; ahora `NdM` es genérico y WOD es `NwodM`. La ficha tira `NwodD` (`App.jsx`, `onSheetRoll`).
+- **Regla V20 (sin explosión)**: `rollWod(count, difficulty, specialty, rng)` no da dados extra por 10. Un 10 normal = 1 éxito; un 10 con `specialty` = 2 éxitos. Los "1" anulan éxitos; pifia si no hay éxitos y hay "1".
 - La suma produce `type:'multi'` con `pools[]` (cada pool enrollado por separado). `rollMulti`/`formatMultiLine` en `dice.js` agregan éxitos/fallos si todo es WOD, o totales si todo es genérico. El gamelog muestra `[..] + [..]` (`LogEntry.jsx`), y `planDice` aplana los pools para el 3D.
 
 ## Dados 3D
 
 - El d10 es un **trapezoedro pentagonal** de 10 kites coplanares (`createD10Geometry` usa `h = tan²(π/10)` para la planitud exacta), con caras opuestas que suman 11. Los triángulos deben estar enrollados **hacia afuera** o las caras se culling por backface (ya hubo ese bug). `src/lib/dice3d.test.js` verifica conteo de caras, opuestos suman 11 y winding; añade un test si tocas geometría.
 - El "valor cara arriba" lo hace `quatForValue(sides, value)` (rota la cara cuyo `valueByFace` coincide hacia `UP`). El d6 usa un cubo con números (antes pips), no `faceDataFor`.
-- Los **dados extra por 10s** (`die.exploded`) se marcan aparte: en 3D `dieStyle` devuelve `'extra'` (estilo violeta en `styleMaps`) antes que `gold`, y en el gamelog se separan de los dados base con un chip `⟳ +N` (`LogEntry.jsx`).
 
 ## Música de fondo
 

@@ -1,11 +1,11 @@
 const COMMAND_RE = /^\/(r|roll)\s+(.+)$/i
-const POOL_WOD_RE = /^(\d+)wod(\d+)$/i
+const POOL_WOD_RE = /^(\d+)wod(\d+)(!)?$/i
 const POOL_GENERIC_RE = /^(\d+)d(\d+)([+-]\d+)?$/i
-const EXPR_RE = /^((?:\d+wod\d+|\d+d\d+(?:[+-]\d+)?)(?:\s*\+\s*(?:\d+wod\d+|\d+d\d+(?:[+-]\d+)?))*)/i
+const EXPR_RE = /^((?:\d+wod\d+!?|\d+d\d+(?:[+-]\d+)?)(?:\s*\+\s*(?:\d+wod\d+!?|\d+d\d+(?:[+-]\d+)?))*)/i
 
 function commandString(pools, description) {
   const expr = pools.map((p) => {
-    if (p.type === 'wod') return `${p.count}wod${p.difficulty}`
+    if (p.type === 'wod') return `${p.count}wod${p.difficulty}${p.specialty ? '!' : ''}`
     const mod = p.modifier ? (p.modifier > 0 ? '+' : '') + p.modifier : ''
     return `${p.count}d${p.sides}${mod}`
   }).join(' + ')
@@ -50,7 +50,7 @@ export function parseCommand(raw) {
       if (count < 1) return { ok: false, error: 'Debes lanzar al menos 1 dado' }
       if (count > 50) return { ok: false, error: 'Máximo 50 dados WOD por reserva' }
       if (difficulty < 2 || difficulty > 10) return { ok: false, error: 'La dificultad WOD debe estar entre 2 y 10' }
-      pools.push({ type: 'wod', count, difficulty })
+      pools.push({ type: 'wod', count, difficulty, specialty: Boolean(wod[3]) })
       continue
     }
     const generic = token.match(POOL_GENERIC_RE)
@@ -77,7 +77,7 @@ export function parseCommand(raw) {
   if (pools.length === 1) {
     const pool = pools[0]
     if (pool.type === 'wod') {
-      return { ok: true, type: 'wod', count: pool.count, difficulty: pool.difficulty, description, command }
+      return { ok: true, type: 'wod', count: pool.count, difficulty: pool.difficulty, specialty: pool.specialty, description, command }
     }
     return { ok: true, type: 'generic', count: pool.count, sides: pool.sides, modifier: pool.modifier, description, command }
   }
@@ -89,7 +89,8 @@ export function previewCommand(parsed) {
   if (!parsed?.ok) return parsed?.error || ''
   if (parsed.type === 'wod') {
     const desc = parsed.description ? ` · ${parsed.description}` : ''
-    return `WOD · ${parsed.count}d10 vs ${parsed.difficulty}${desc}`
+    const spec = parsed.specialty ? ' · especialidad (10 = 2)' : ''
+    return `WOD · ${parsed.count}d10 vs ${parsed.difficulty}${spec}${desc}`
   }
   if (parsed.type === 'generic') {
     const sign = parsed.modifier >= 0 ? `+${parsed.modifier}` : `${parsed.modifier}`
@@ -97,7 +98,7 @@ export function previewCommand(parsed) {
     return `Genérico · ${parsed.count}d${parsed.sides}${parsed.modifier ? sign : ''}${desc}`
   }
   const pools = parsed.pools.map((p) => {
-    if (p.type === 'wod') return `${p.count}wod${p.difficulty}`
+    if (p.type === 'wod') return `${p.count}wod${p.difficulty}${p.specialty ? '!' : ''}`
     const mod = p.modifier ? (p.modifier > 0 ? '+' : '') + p.modifier : ''
     return `${p.count}d${p.sides}${mod}`
   }).join(' + ')

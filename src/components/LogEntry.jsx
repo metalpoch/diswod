@@ -10,27 +10,15 @@ function Die({ die }) {
     die.isOne ? 'is-one' : '',
     die.success && !die.isTen ? 'is-hit' : '',
     !die.success && !die.isOne ? 'is-miss' : '',
-    die.exploded ? 'is-extra' : '',
   ].filter(Boolean).join(' ')
-  return (
-    <span className={cls} title={die.exploded ? 'Dado extra conseguido con un 10' : undefined}>
-      {die.value}
-    </span>
-  )
+  return <span className={cls}>{die.value}</span>
 }
 
 function WodDice({ dice, idPrefix }) {
   return (
     <>
       {dice.map((die, i) => (
-        <Fragment key={`${idPrefix}-${i}`}>
-          {i > 0 && die.exploded && !dice[i - 1].exploded ? (
-            <span className="dice-plus" title="Dados extra conseguidos con 10s">
-              ⟳ +{dice.filter((d) => d.exploded).length}
-            </span>
-          ) : null}
-          <Die die={die} />
-        </Fragment>
+        <Die key={`${idPrefix}-${i}`} die={die} />
       ))}
     </>
   )

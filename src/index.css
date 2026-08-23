@@ -592,8 +592,8 @@ code {
 }
 .swatch.is-on { outline: 2px solid var(--gold); }
 
-.lobby { overflow: auto; }
-.lobby-wrap { width: min(980px, 100%); padding: 28px 20px 48px; }
+.lobby { overflow: auto; display: block; }
+.lobby-wrap { width: min(980px, 100%); margin: 0 auto; padding: 28px 20px 48px; }
 .lobby-head { margin-bottom: 20px; }
 .lobby-grid {
   display: grid;
@@ -606,11 +606,13 @@ code {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   border: 1px solid var(--line);
   padding: 12px;
   background: #100606ee;
 }
-.lobby-list strong { font-family: Cinzel, serif; color: var(--gold); }
+.lobby-list li > div:first-child { min-width: 0; }
+.lobby-list strong { font-family: Cinzel, serif; color: var(--gold); overflow-wrap: anywhere; }
 .lobby-list small, .muted { color: var(--muted); }
 .lobby-list p { margin: 6px 0 0; }
 .lobby-actions { display: grid; gap: 6px; align-content: start; }
@@ -647,6 +649,7 @@ code {
 }
 .join-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 .join-row input {
+  min-width: 0;
   background: #0b0404;
   border: 1px solid var(--gold);
   padding: 10px 12px;
@@ -983,6 +986,15 @@ code {
 .pool-total { font-family: "Share Tech Mono", monospace; color: var(--gold); font-size: 15px; }
 .pool .primary { min-height: 0; padding: 6px 12px; font-size: 12px; }
 .sheet-hint { font-size: 12px; margin: 0; }
+.spec-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.spec-toggle input { accent-color: var(--gold); }
 
 .sheet-paper {
   flex: 1;

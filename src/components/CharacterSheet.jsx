@@ -258,6 +258,7 @@ export default function CharacterSheet({
   isOwn,
 }) {
   const [pool, setPool] = useState([])
+  const [specialty, setSpecialty] = useState(false)
   const [cropSrc, setCropSrc] = useState(null)
   const [avatarError, setAvatarError] = useState('')
   const fileRef = useRef(null)
@@ -274,26 +275,31 @@ export default function CharacterSheet({
     return 0
   }
 
-  const composeFromPool = (nextPool) => {
+  const composeFromPool = (nextPool, spec) => {
     const total = nextPool.reduce((acc, p) => acc + valueOf(p.id), 0)
     if (!total) {
       onCompose?.(null)
       return
     }
-    onCompose?.({ count: total, description: nextPool.map((p) => p.label).join(' + ') })
+    onCompose?.({ count: total, description: nextPool.map((p) => p.label).join(' + '), specialty: spec })
   }
 
   const togglePool = (id, label) => {
     const exists = pool.some((p) => p.id === id)
     const next = exists ? pool.filter((p) => p.id !== id) : [...pool, { id, label }]
     setPool(next)
-    composeFromPool(next)
+    composeFromPool(next, specialty)
   }
 
   const composeOne = (label, count) => {
     if (!count) return
     setPool([])
-    onCompose?.({ count, description: label })
+    onCompose?.({ count, description: label, specialty })
+  }
+
+  const toggleSpecialty = (next) => {
+    setSpecialty(next)
+    if (pool.length) composeFromPool(pool, next)
   }
 
   useEffect(() => {
@@ -413,6 +419,15 @@ export default function CharacterSheet({
 
       <div className="sheet-rollbar">
         <p className="muted sheet-hint">Toca un nombre para sumar a la tirada, o el dado para una tirada simple. La tirada se arma abajo, en el campo de dados.</p>
+        <label className="spec-toggle">
+          <input
+            type="checkbox"
+            checked={specialty}
+            disabled={readOnly}
+            onChange={(e) => toggleSpecialty(e.target.checked)}
+          />
+          Con especialidad (10 = 2 éxitos)
+        </label>
       </div>
 
       <div className="sheet-identity">

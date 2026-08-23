@@ -413,7 +413,6 @@ export function quatForValue(sides, value) {
 
 export function dieStyle(die, type) {
   if (type === 'wod') {
-    if (die.exploded) return 'extra'
     if (die.isTen) return 'gold'
     if (die.isOne) return 'blood'
     if (die.success) return 'hit'

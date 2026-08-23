@@ -167,10 +167,11 @@ export default function App() {
       setDiceText('')
       return
     }
-    const match = diceText.match(/(?:^|\s)(\d+)wod(\d+)/)
+    const match = diceText.match(/(?:^|\s)(\d+)wod(\d+)(!?)/)
     const difficulty = match ? Number(match[2]) : 6
+    const specialty = payload.specialty ?? (match ? Boolean(match[3]) : false)
     const description = payload.description ? ` ${payload.description}` : ''
-    setDiceText(`/r ${payload.count}wod${difficulty}${description}`)
+    setDiceText(`/r ${payload.count}wod${difficulty}${specialty ? '!' : ''}${description}`)
   }
 
   const createNpc = async () => {

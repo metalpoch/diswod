@@ -17,7 +17,7 @@ describe('parseCommand', () => {
   })
 
   it('parses WOD rolls (NwodD)', () => {
-    expect(parseCommand('/r 4wod6')).toMatchObject({ ok: true, type: 'wod', count: 4, difficulty: 6 })
+    expect(parseCommand('/r 4wod6')).toMatchObject({ ok: true, type: 'wod', count: 4, difficulty: 6, specialty: false })
     expect(parseCommand('/roll 4wod6 ataque con espada')).toMatchObject({
       ok: true,
       type: 'wod',
@@ -27,12 +27,17 @@ describe('parseCommand', () => {
     })
   })
 
+  it('parses WOD specialty rolls (NwodD!)', () => {
+    expect(parseCommand('/r 4wod6!')).toMatchObject({ ok: true, type: 'wod', count: 4, difficulty: 6, specialty: true })
+    expect(parseCommand('/r 4wod6! con la especialidad').command).toBe('/r 4wod6! con la especialidad')
+  })
+
   it('parses combined pools', () => {
     const parsed = parseCommand('/r 4wod6 + 3wod8')
     expect(parsed).toMatchObject({ ok: true, type: 'multi' })
     expect(parsed.pools).toEqual([
-      { type: 'wod', count: 4, difficulty: 6 },
-      { type: 'wod', count: 3, difficulty: 8 },
+      { type: 'wod', count: 4, difficulty: 6, specialty: false },
+      { type: 'wod', count: 3, difficulty: 8, specialty: false },
     ])
   })
 
@@ -41,7 +46,7 @@ describe('parseCommand', () => {
     expect(parsed.ok).toBe(true)
     expect(parsed.pools).toEqual([
       { type: 'generic', count: 3, sides: 10, modifier: 0 },
-      { type: 'wod', count: 2, difficulty: 7 },
+      { type: 'wod', count: 2, difficulty: 7, specialty: false },
     ])
   })
 

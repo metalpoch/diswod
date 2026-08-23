@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 const EXAMPLES = [
   ['/r 4wod6', 'WOD: 4 dados d10, dificultad 6'],
+  ['/r 4wod6!', 'WOD con especialidad: los 10 cuentan 2 éxitos'],
   ['/r 4wod6 ataque sigiloso', 'WOD con descripción'],
   ['/r 3d10', 'Genérico: 3d10 (suma)'],
   ['/r 1d3', 'Genérico: 1 dado de 3 caras'],
@@ -32,7 +33,7 @@ export default function Help() {
                 </li>
               ))}
             </ul>
-            <p>WOD (<code>NwodD</code>): los 10 explotan, los 1 anulan éxitos. Dificultad 2–10.</p>
+            <p>WOD (<code>NwodD</code>): los 1 anulan éxitos. Dificultad 2–10. Con <code>!</code> (especialidad) los 10 cuentan 2 éxitos.</p>
             <p>Genérico (<code>NdS</code>): suma los dados, con modificador opcional (<code>/r 1d10+0</code>).</p>
             <p>Suma (<code>+</code>): lanza varias reservas a la vez (<code>/r 4wod6 + 3wod8</code>).</p>
             <p>
