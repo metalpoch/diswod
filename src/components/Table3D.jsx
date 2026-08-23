@@ -106,7 +106,7 @@ function Furniture() {
 function SeatTag({ player, seat, self }) {
   const rest = SEATS[seat].rest
   return (
-    <Html position={[rest[0] * 1.08, 0.72, rest[2] * 1.08]} center distanceFactor={7} occlude={false}>
+    <Html position={[rest[0] * 1.08, 0.72, rest[2] * 1.08]} center distanceFactor={7} occlude={false} zIndexRange={[15, 10]}>
       <div className={self ? 'seat-tag is-self' : 'seat-tag'}>
         {player ? (
           <>

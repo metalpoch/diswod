@@ -136,7 +136,7 @@ export default function Die3D({ die, play, showLabels }) {
           position={[0, 0.55, 0]}
           center
           distanceFactor={8}
-          zIndexRange={[20000000, 19000000]}
+          zIndexRange={[8, 3]}
           style={{ pointerEvents: 'none' }}
         >
           <div className="die-label" style={{ background: label.bg, color: label.ink }}>

@@ -1098,7 +1098,7 @@ code {
 }
 .sheet-side-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
   align-items: start;
 }
@@ -1203,7 +1203,9 @@ code {
   padding: 4px 6px;
   outline: none;
   font-size: 13px;
+  color: var(--ink);
 }
+.list-row input::placeholder { color: var(--muted); font-style: italic; }
 .list-row input:focus { border-color: var(--gold); }
 .list-row input.cost { width: 70px; text-align: center; }
 .sheet-sub {
