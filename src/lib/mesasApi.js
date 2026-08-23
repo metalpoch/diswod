@@ -166,6 +166,34 @@ export async function setMemberMuted(mesaId, playerId, muted) {
   if (error) throw error
 }
 
+export async function setMemberAvatar(mesaId, playerId, avatar) {
+  const { error: memberError } = await supabase
+    .from('mesa_members')
+    .update({ avatar })
+    .eq('mesa_id', mesaId)
+    .eq('player_id', playerId)
+  if (memberError) throw memberError
+
+  const { data, error } = await supabase
+    .from('log_entries')
+    .select('id, payload')
+    .eq('mesa_id', mesaId)
+    .eq('player_id', playerId)
+  if (error) throw error
+
+  for (const row of data || []) {
+    const payload = {
+      ...(row.payload || {}),
+      player: { ...(row.payload?.player || {}), avatar },
+    }
+    const { error: updateError } = await supabase
+      .from('log_entries')
+      .update({ payload })
+      .eq('id', row.id)
+    if (updateError) throw updateError
+  }
+}
+
 export async function kickMember(mesaId, playerId) {
   const { error } = await supabase
     .from('mesa_members')
@@ -323,6 +351,29 @@ export async function saveSheet(mesaId, playerId, data) {
     data,
     updated_at: new Date().toISOString(),
   })
+  if (error) throw error
+}
+
+export async function listNpcSheets(mesaId) {
+  const { data, error } = await supabase
+    .from('player_sheets')
+    .select('player_id, data')
+    .eq('mesa_id', mesaId)
+    .like('player_id', 'npc-%')
+    .order('updated_at', { ascending: true })
+  if (error) throw error
+  return (data || []).map((row) => ({
+    player_id: row.player_id,
+    name: row.data?.header?.nombre || 'NPC',
+  }))
+}
+
+export async function deleteNpcSheet(mesaId, playerId) {
+  const { error } = await supabase
+    .from('player_sheets')
+    .delete()
+    .eq('mesa_id', mesaId)
+    .eq('player_id', playerId)
   if (error) throw error
 }
 

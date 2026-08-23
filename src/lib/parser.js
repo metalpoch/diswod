@@ -1,6 +1,16 @@
-const COMMAND_RE = /^\/(r|roll)\s+(\S+)(?:\s+(.*))?$/i
-const GENERIC_RE = /^(\d+)d(\d+)([+-]\d+)$/i
-const WOD_RE = /^(\d+)d(\d+)$/i
+const COMMAND_RE = /^\/(r|roll)\s+(.+)$/i
+const POOL_WOD_RE = /^(\d+)wod(\d+)$/i
+const POOL_GENERIC_RE = /^(\d+)d(\d+)([+-]\d+)?$/i
+const EXPR_RE = /^((?:\d+wod\d+|\d+d\d+(?:[+-]\d+)?)(?:\s*\+\s*(?:\d+wod\d+|\d+d\d+(?:[+-]\d+)?))*)/i
+
+function commandString(pools, description) {
+  const expr = pools.map((p) => {
+    if (p.type === 'wod') return `${p.count}wod${p.difficulty}`
+    const mod = p.modifier ? (p.modifier > 0 ? '+' : '') + p.modifier : ''
+    return `${p.count}d${p.sides}${mod}`
+  }).join(' + ')
+  return `/r ${expr}${description ? ` ${description}` : ''}`
+}
 
 export function parseCommand(raw) {
   const input = String(raw ?? '').trim()
@@ -14,58 +24,65 @@ export function parseCommand(raw) {
 
   const cmd = input.match(COMMAND_RE)
   if (!cmd) {
-    if (/^\/(r|roll)$/i.test(input)) {
-      return { ok: false, error: 'Falta la expresión de dados' }
-    }
-    return { ok: false, error: 'Formato incorrecto. Ej: /r 3d5 o /r 1d10+4' }
+    return { ok: false, error: 'Formato incorrecto. Ej: /r 4wod6 o /r 3d10' }
   }
 
-  const expr = cmd[2]
-  const description = cmd[3] ? cmd[3].trim() : ''
+  const body = cmd[2].trim()
+  const match = body.match(EXPR_RE)
+  if (!match || !match[1]) {
+    return { ok: false, error: 'Expresión de dados inválida. Ej: /r 4wod6, /r 3d10 o /r 4wod6 + 3wod8' }
+  }
+  const expr = match[1]
+  const rest = body.slice(match[0].length)
+  if (rest && !/^\s/.test(rest)) {
+    return { ok: false, error: `Expresión inválida tras «${expr}»` }
+  }
+  const description = rest.trim()
 
-  const generic = expr.match(GENERIC_RE)
-  if (generic) {
-    const count = Number(generic[1])
-    const sides = Number(generic[2])
-    const modifier = Number(generic[3])
-    if (count < 1) return { ok: false, error: 'Debes lanzar al menos 1 dado' }
-    if (count > 100) return { ok: false, error: 'Máximo 100 dados' }
-    if (sides < 2) return { ok: false, error: 'El dado debe tener al menos 2 caras' }
-    if (sides > 1000) return { ok: false, error: 'Máximo 1000 caras' }
-    return {
-      ok: true,
-      type: 'generic',
-      count,
-      sides,
-      modifier,
-      description,
-      command: `/r ${count}d${sides}${modifier >= 0 ? '+' : ''}${modifier}${description ? ` ${description}` : ''}`,
+  const parts = expr.split(/\s*\+\s*(?=\d+[dw])/i)
+  const pools = []
+  for (const part of parts) {
+    const token = part.trim()
+    const wod = token.match(POOL_WOD_RE)
+    if (wod) {
+      const count = Number(wod[1])
+      const difficulty = Number(wod[2])
+      if (count < 1) return { ok: false, error: 'Debes lanzar al menos 1 dado' }
+      if (count > 50) return { ok: false, error: 'Máximo 50 dados WOD por reserva' }
+      if (difficulty < 2 || difficulty > 10) return { ok: false, error: 'La dificultad WOD debe estar entre 2 y 10' }
+      pools.push({ type: 'wod', count, difficulty })
+      continue
     }
+    const generic = token.match(POOL_GENERIC_RE)
+    if (generic) {
+      const count = Number(generic[1])
+      const sides = Number(generic[2])
+      const modifier = generic[3] ? Number(generic[3]) : 0
+      if (count < 1) return { ok: false, error: 'Debes lanzar al menos 1 dado' }
+      if (count > 100) return { ok: false, error: 'Máximo 100 dados' }
+      if (sides < 2) return { ok: false, error: 'El dado debe tener al menos 2 caras' }
+      if (sides > 1000) return { ok: false, error: 'Máximo 1000 caras' }
+      pools.push({ type: 'generic', count, sides, modifier })
+      continue
+    }
+    return { ok: false, error: `No entiendo «${token}»` }
   }
 
-  const wod = expr.match(WOD_RE)
-  if (wod) {
-    const count = Number(wod[1])
-    const difficulty = Number(wod[2])
-    if (count < 1) return { ok: false, error: 'Debes lanzar al menos 1 dado' }
-    if (count > 50) return { ok: false, error: 'Máximo 50 dados WOD' }
-    if (difficulty > 10) {
-      return { ok: false, error: 'Dificultad máxima: 10. Para dados genéricos usa /r 1d20+0' }
-    }
-    if (difficulty < 2) {
-      return { ok: false, error: 'La dificultad mínima es 2' }
-    }
-    return {
-      ok: true,
-      type: 'wod',
-      count,
-      difficulty,
-      description,
-      command: `/r ${count}d${difficulty}${description ? ` ${description}` : ''}`,
-    }
+  if (pools.length === 0) {
+    return { ok: false, error: 'Falta la expresión de dados' }
   }
 
-  return { ok: false, error: 'Formato incorrecto. Ej: /r 3d5 o /r 1d10+4' }
+  const command = commandString(pools, description)
+
+  if (pools.length === 1) {
+    const pool = pools[0]
+    if (pool.type === 'wod') {
+      return { ok: true, type: 'wod', count: pool.count, difficulty: pool.difficulty, description, command }
+    }
+    return { ok: true, type: 'generic', count: pool.count, sides: pool.sides, modifier: pool.modifier, description, command }
+  }
+
+  return { ok: true, type: 'multi', pools, description, command }
 }
 
 export function previewCommand(parsed) {
@@ -74,7 +91,16 @@ export function previewCommand(parsed) {
     const desc = parsed.description ? ` · ${parsed.description}` : ''
     return `WOD · ${parsed.count}d10 vs ${parsed.difficulty}${desc}`
   }
-  const sign = parsed.modifier >= 0 ? `+${parsed.modifier}` : `${parsed.modifier}`
+  if (parsed.type === 'generic') {
+    const sign = parsed.modifier >= 0 ? `+${parsed.modifier}` : `${parsed.modifier}`
+    const desc = parsed.description ? ` · ${parsed.description}` : ''
+    return `Genérico · ${parsed.count}d${parsed.sides}${parsed.modifier ? sign : ''}${desc}`
+  }
+  const pools = parsed.pools.map((p) => {
+    if (p.type === 'wod') return `${p.count}wod${p.difficulty}`
+    const mod = p.modifier ? (p.modifier > 0 ? '+' : '') + p.modifier : ''
+    return `${p.count}d${p.sides}${mod}`
+  }).join(' + ')
   const desc = parsed.description ? ` · ${parsed.description}` : ''
-  return `Genérico · ${parsed.count}d${parsed.sides}${sign}${desc}`
+  return `Combinada · ${pools}${desc}`
 }

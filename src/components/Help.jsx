@@ -1,11 +1,12 @@
 import { useState } from 'react'
 
 const EXAMPLES = [
-  ['/r 3d5', 'WOD: 3 dados, dificultad 5'],
-  ['/r 3d6 ataque sigiloso', 'WOD con descripción'],
-  ['/r 1d10+4', 'Genérico: 1d10 + 4'],
-  ['/r 2d6-2', 'Genérico con penalizador'],
-  ['/r 1d10+3 iniciativa de Keiber', 'Genérico con descripción'],
+  ['/r 4wod6', 'WOD: 4 dados d10, dificultad 6'],
+  ['/r 4wod6 ataque sigiloso', 'WOD con descripción'],
+  ['/r 3d10', 'Genérico: 3d10 (suma)'],
+  ['/r 1d3', 'Genérico: 1 dado de 3 caras'],
+  ['/r 1d10+4', 'Genérico con modificador'],
+  ['/r 4wod6 + 3wod8', 'Suma de dos reservas a la vez'],
 ]
 
 export default function Help() {
@@ -26,8 +27,9 @@ export default function Help() {
               </li>
             ))}
           </ul>
-          <p>WOD: los 10 explotan, los 1 anulan éxitos. Dificultad 2–10.</p>
-          <p>Genérico: siempre con modificador (<code>/r 1d10+0</code>).</p>
+          <p>WOD (<code>NwodD</code>): los 10 explotan, los 1 anulan éxitos. Dificultad 2–10.</p>
+          <p>Genérico (<code>NdS</code>): suma los dados, con modificador opcional (<code>/r 1d10+0</code>).</p>
+          <p>Suma (<code>+</code>): lanza varias reservas a la vez (<code>/r 4wod6 + 3wod8</code>).</p>
           <p>
             <a href="/tos.html" target="_blank" rel="noreferrer">Condiciones</a>
             {' · '}

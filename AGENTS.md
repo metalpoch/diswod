@@ -38,6 +38,12 @@ Flujo de prueba: commit en `dev` → auto-deploy al workers.dev → probar en na
 - `src/hooks/`: `useActivity` (boot del SDK Discord), `useMesas`, `useMembers`, `useGameLog` (fusiona log vivo + persistido), `useMusic` (música de fondo en bucle).
 - `Table3D` se carga con `React.lazy` (code-split de three.js). No lo importes estáticamente.
 
+## Tiradas (formato de comandos)
+
+- `src/lib/parser.js` acepta: genérico `NdS` (suma de N dados de S caras), WOD `NwodD` (N d10 vs dificultad D), modificador en genérico (`NdS+M` / `NdS-M`), y **suma de reservas** con `+` (`/r 4wod6 + 3wod8`).
+- **Cambio de formato (breaking)**: antes `NdM` era WOD; ahora `NdM` es genérico y WOD es `NwodM`. La ficha tira `NwodD` (`App.jsx`, `onSheetRoll`).
+- La suma produce `type:'multi'` con `pools[]` (cada pool enrollado por separado). `rollMulti`/`formatMultiLine` en `dice.js` agregan éxitos/fallos si todo es WOD, o totales si todo es genérico. El gamelog muestra `[..] + [..]` (`LogEntry.jsx`), y `planDice` aplana los pools para el 3D.
+
 ## Dados 3D
 
 - El d10 es un **trapezoedro pentagonal** de 10 kites coplanares (`createD10Geometry` usa `h = tan²(π/10)` para la planitud exacta), con caras opuestas que suman 11. Los triángulos deben estar enrollados **hacia afuera** o las caras se culling por backface (ya hubo ese bug). `src/lib/dice3d.test.js` verifica conteo de caras, opuestos suman 11 y winding; añade un test si tocas geometría.
@@ -58,6 +64,7 @@ No existe "nombre de jugador" global. El modelo actual:
 - **Identidad** = usuario de Discord (id, nombre visible, avatar). En la Activity viene del auth vía la Edge Function `discord-token`; si falla, `NameGate` muestra la lista de participantes para elegir usuario. En web sin Discord: id local + nombre "Jugador".
 - **`useActivity` descarta identidades guardadas que no sean de Discord** (o que no estén en los participantes actuales) para que PC y móvil compartan el mismo `player_id` en Supabase. No reintroduzcas nombres custom en la identidad.
 - **Nombre de personaje es por mesa** (`mesa_members.player_name`). Al unirse por código siendo miembro nuevo, se muestra un modal de bienvenida (`CharacterGate`) que pide el nombre de personaje y confirma 18+; si lo omites ("Ahora no") queda tu nombre de Discord. Al crear mesa el creador queda como "Narrador". Se edita con el botón ✎ del topbar (`NameEdit`).
+- **Foto de perfil**: el botón ✎ (`NameEdit`) también sube foto a Supabase Storage (bucket público `avatars`, `src/lib/avatar.js` → `uploadAvatar`). Guarda la URL pública en la identidad (localStorage + awareness) y en `mesa_members.avatar` (`setMemberAvatar`). Requiere correr `supabase/migration_avatars.sql` (crea el bucket + políticas de storage).
 - **Renombrar reescribe TODO el historial**: `mesasApi.renameMember` actualiza `mesa_members` + todas las filas de `log_entries` (columna `player_name` y `payload.player.name`), y `log.renamePlayer` reescribe el log vivo en Yjs para todos. Las tiradas nuevas usan el nombre de personaje (`App.jsx`, `charName`).
 - La pantalla de entrada (`NameGate`) ya NO pide nombre; solo es el age gate 18+ (texto "contenido 18+") y, en Discord, el picker de participantes. Las páginas legales (`public/tos.html`, `public/privacy.html`) dicen solo 18+.
 - **Web bloqueada en producción**: si `useActivity` arranca en modo `standalone` y no hay `VITE_ALLOW_WEB=1`, se muestra `DiscordOnly` invitando a usar la Activity. En dev (`npm run dev`) la web sigue funcionando.
@@ -73,16 +80,18 @@ No existe "nombre de jugador" global. El modelo actual:
 
 ## Ficha de personaje
 
-- Pestaña **Ficha** en el panel crónica (`CharacterSheet.jsx`), solo con mesa persistida. Datos por `(mesa_id, player_id)` en `player_sheets` (jsonb), igual que `player_notes`/`player_boards`.
+- Pestaña **Ficha** en el panel crónica (`CharacterSheet.jsx`), solo con mesa persistida. Renderiza **dentro del panel** (no modal): `.sheet-viewer` (selector de ficha del Narrador + NPCs) + `.sheet-paper` desplazable con la hoja en secciones (Atributos/Habilidades/Ventajas/Méritos/Salud). Datos por `(mesa_id, player_id)` en `player_sheets` (jsonb), igual que `player_notes`/`player_boards`.
+- **Panel redimensionable**: en escritorio hay un divisor arrastrable (`.splitter`) entre el panel crónica y la mesa 3D (`App.jsx` guarda `panelW` con pointer events). En móvil la mesa 3D se oculta y no hay divisor.
 - Estructura de la hoja (V20) en `src/lib/characterSheet.js`: `defaultSheet()` + `normalizeSheet()` (merge con defaults para no romper filas viejas; migra stats numéricos viejos a `{v, spec}`). Al editar se guarda con debounce en `useSheet` (`src/hooks/useSheet.js`).
 - Los campos con **autocompletado** (Naturaleza, Conducta, Concepto, Clan, Generación, Senda, Porte, Disciplinas, Trasfondos, Méritos, Defectos y **Especialidades** de cada atributo/habilidad) usan combobox (`<input list>` + `<datalist>`); las listas exactas están en `src/lib/sheetOptions.js`, **extraídas de `mocks/WOD_Editable.pdf`** (no editar a mano; regenerar con el script de extracción). El coste de Méritos/Defectos es manual. Defaults del PDF: Senda "Humanidad", Porte "Resolución", Virtudes Conciencia/Autocontrol (alternables a Convicción/Instinto).
 - **Tiradas desde la ficha**: clic en el dado (⚄) de una stat tira `valor d dificultad`; clic en el *nombre* acumula stats en una reserva combinada (p. ej. Destreza + Alerta para iniciativa). La **dificultad** la elige el jugador en la propia ficha (la "dice" el Narrador); no se guarda en mesa.
 - **El Narrador ve todas las fichas** (solo lectura) con el selector de la pestaña Ficha (`sheetTarget` en `App.jsx`). Los jugadores solo ven/editando la suya.
+- **NPCs del Narrador**: el Narrador crea/borra fichas de NPC desde la pestaña Ficha (`useNpcs`). Son filas de `player_sheets` con `player_id` prefijado `npc-<uuid>` (`listNpcSheets` filtra por `like 'npc-%'`); el nombre del NPC es `data.header.nombre`.
 - Al aceptar el `CharacterGate` (jugador nuevo) se salta a la pestaña Ficha (`setTab('ficha')`).
 
 ## Supabase
 
-- `supabase/schema.sql` = esquema completo (tablas + RLS + publicación realtime). Migraciones incrementales: `supabase/migration_members.sql`, `supabase/migration_sheets.sql` (tabla `player_sheets`).
+- `supabase/schema.sql` = esquema completo (tablas + RLS + publicación realtime). Migraciones incrementales: `supabase/migration_members.sql`, `supabase/migration_sheets.sql` (tabla `player_sheets`), `supabase/migration_avatars.sql` (bucket de storage `avatars`).
 - El RLS es `using (true)` (abierto a propósito). No lo "endurezcas" sin hablar con el usuario.
 - El `roomId` de sync es `mesa-<mesaId>` cuando hay mesa persistida, si no `activity.roomId`.
 - **Tú NO puedes ejecutar DDL**: el agente solo tiene la publishable key (REST). Los cambios de schema (`muted` en `mesa_members`, drop de `character_name` en `player_notes`) están en los archivos `.sql`; recuérdale al usuario correrlos en el SQL Editor de Supabase.

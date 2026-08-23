@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import CharacterGate from './components/CharacterGate'
 import ChroniclePanel from './components/ChroniclePanel'
 import DicePanel from './components/DicePanel'
@@ -12,10 +12,12 @@ import { useGameLog } from './hooks/useGameLog'
 import { useMembers } from './hooks/useMembers'
 import { useMesas } from './hooks/useMesas'
 import { useMusic } from './hooks/useMusic'
+import { useNpcs } from './hooks/useNpcs'
 import { useSheet } from './hooks/useSheet'
+import { uploadAvatar, validAvatarFile } from './lib/avatar'
 import { executeParsed, formatResultLine } from './lib/dice'
 import { colorFromName, isLikelyEmbedded } from './lib/discord'
-import { deleteMyData, renameMember } from './lib/mesasApi'
+import { deleteMyData, renameMember, setMemberAvatar } from './lib/mesasApi'
 import { hasSupabase } from './lib/supabase'
 import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
 import { copyText } from './lib/clipboard'
@@ -47,6 +49,9 @@ export default function App() {
   const isMobile = useIsMobile()
   const [showTable, setShowTable] = useState(!isMobile)
   const [sheetTarget, setSheetTarget] = useState(null)
+  const [panelW, setPanelW] = useState(380)
+  const [dragging, setDragging] = useState(false)
+  const mainRef = useRef(null)
 
   const persist = persistOn && archive.current && !skipSave
     ? { enabled: true, mesaId: archive.current.id, sessionId: archive.current.currentSessionId }
@@ -56,9 +61,10 @@ export default function App() {
   const party = useMembers(persist.enabled ? persist.mesaId : '', activity.identity)
   const viewingPlayerId = sheetTarget || activity.identity?.id || ''
   const sheet = useSheet(persist.enabled ? persist.mesaId : '', viewingPlayerId)
-  const sheetReadOnly = Boolean(
-    persist.enabled && party.isDm && viewingPlayerId && viewingPlayerId !== activity.identity?.id,
-  )
+  const npcs = useNpcs(persist.enabled ? persist.mesaId : '')
+  const viewingOtherPlayer = viewingPlayerId !== activity.identity?.id
+    && party.members.some((m) => m.player_id === viewingPlayerId)
+  const sheetReadOnly = Boolean(persist.enabled && party.isDm && viewingOtherPlayer)
 
   const players = useMemo(
     () => activity.mergePlayers(log.remotes),
@@ -91,6 +97,24 @@ export default function App() {
     setToast('Te han expulsado de la mesa')
     window.setTimeout(() => setToast(''), 1800)
   }, [party.kicked])
+
+  useEffect(() => {
+    if (!dragging) return undefined
+    const move = (event) => {
+      const main = mainRef.current
+      if (!main) return
+      const rect = main.getBoundingClientRect()
+      const next = Math.min(Math.max(event.clientX - rect.left, 260), rect.width - 300)
+      setPanelW(next)
+    }
+    const up = () => setDragging(false)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+  }, [dragging])
 
   const lastCommands = useMemo(() => {
     const mine = log.entries
@@ -143,8 +167,30 @@ export default function App() {
       count,
       difficulty,
       description,
-      command: `/r ${count}d${difficulty}${description ? ` ${description}` : ''}`,
+      command: `/r ${count}wod${difficulty}${description ? ` ${description}` : ''}`,
     })
+  }
+
+  const createNpc = async () => {
+    try {
+      const id = await npcs.create()
+      setSheetTarget(id)
+      setTab('ficha')
+      flash('NPC creado')
+    } catch (err) {
+      flash(err.message || 'No se pudo crear el NPC')
+    }
+  }
+
+  const deleteNpc = async (id) => {
+    if (!window.confirm('¿Eliminar la ficha de este NPC?')) return
+    try {
+      await npcs.remove(id)
+      if (sheetTarget === id) setSheetTarget(null)
+      flash('NPC eliminado')
+    } catch (err) {
+      flash(err.message || 'No se pudo eliminar el NPC')
+    }
   }
 
   const leaveTable = async () => {
@@ -168,6 +214,22 @@ export default function App() {
     const next = { ...activity.identity, name, color: colorFromName(name) }
     activity.setIdentity(next)
     log.renamePlayer(next.id, name)
+  }
+
+  const changeAvatar = async (file) => {
+    const invalid = validAvatarFile(file)
+    if (invalid) throw new Error(invalid)
+    const url = await uploadAvatar(activity.identity.id, file)
+    activity.setIdentity({ ...activity.identity, avatar: url })
+    log.setPlayerAvatar(activity.identity.id, url)
+    if (persist.enabled) {
+      try {
+        await setMemberAvatar(persist.mesaId, activity.identity.id, url)
+      } catch (err) {
+        flash(err.message || 'La foto se subió pero no se guardó en la mesa')
+      }
+    }
+    flash('Foto actualizada')
   }
 
   if (!isLikelyEmbedded() && !import.meta.env.DEV && import.meta.env.VITE_ALLOW_WEB !== '1') {
@@ -299,7 +361,7 @@ export default function App() {
               ♪ Música {music.muted ? 'OFF' : 'ON'}
             </button>
           ) : null}
-          <NameEdit name={charName} onRename={renameSelf} />
+          <NameEdit name={charName} avatar={activity.identity?.avatar} onRename={renameSelf} onAvatar={changeAvatar} />
           {!isMobile ? (
             <button
               type="button"
@@ -313,7 +375,15 @@ export default function App() {
         </div>
       </header>
 
-      <main className={showTable ? '' : 'table-closed'}>
+      <main
+        ref={mainRef}
+        className={`${showTable ? '' : 'table-closed'}${dragging ? ' is-dragging' : ''}`}
+        style={isMobile
+          ? { gridTemplateColumns: '1fr' }
+          : showTable
+            ? { gridTemplateColumns: `${panelW}px 10px 1fr` }
+            : undefined}
+      >
         <ChroniclePanel
           tab={tab}
           onTab={setTab}
@@ -357,7 +427,23 @@ export default function App() {
           onSheetChange={sheet.update}
           onSheetRoll={onSheetRoll}
           rollDisabled={rollBlocked}
+          npcs={npcs.npcs}
+          onCreateNpc={createNpc}
+          onDeleteNpc={deleteNpc}
+          avatar={activity.identity?.avatar}
+          onAvatar={changeAvatar}
+          isOwn={viewingPlayerId === activity.identity?.id}
         />
+        {showTable && !isMobile ? (
+          <div
+            className={dragging ? 'splitter is-dragging' : 'splitter'}
+            onPointerDown={(e) => {
+              e.preventDefault()
+              setDragging(true)
+            }}
+            title="Arrastra para redimensionar"
+          />
+        ) : null}
         <Suspense fallback={<div className="table-stage" />}>
           <Table3D
             seats={seats}

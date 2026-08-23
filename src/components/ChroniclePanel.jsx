@@ -28,6 +28,12 @@ export default function ChroniclePanel({
   onSheetChange,
   onSheetRoll,
   rollDisabled,
+  npcs,
+  onCreateNpc,
+  onDeleteNpc,
+  avatar,
+  onAvatar,
+  isOwn,
 }) {
   return (
     <aside className="chronicle">
@@ -49,19 +55,38 @@ export default function ChroniclePanel({
         <>
           {isDm ? (
             <div className="sheet-viewer">
-              <label htmlFor="sheet-target">Ficha de</label>
-              <select
-                id="sheet-target"
-                value={sheetTarget || ''}
-                onChange={(e) => onSheetTarget(e.target.value || null)}
-              >
-                <option value="">Yo ({me?.name || 'Narrador'})</option>
-                {members
-                  .filter((m) => m.player_id !== me?.player_id)
-                  .map((m) => (
-                    <option key={m.player_id} value={m.player_id}>{m.name}</option>
-                  ))}
-              </select>
+              <div className="sheet-viewer-row">
+                <label htmlFor="sheet-target">Ficha de</label>
+                <select
+                  id="sheet-target"
+                  value={sheetTarget || ''}
+                  onChange={(e) => onSheetTarget(e.target.value || null)}
+                >
+                  <option value="">Yo ({me?.name || 'Narrador'})</option>
+                  {members
+                    .filter((m) => m.player_id !== me?.player_id)
+                    .map((m) => (
+                      <option key={m.player_id} value={m.player_id}>{m.name}</option>
+                    ))}
+                </select>
+              </div>
+              <div className="npc-bar">
+                <span className="npc-label">NPCs</span>
+                {npcs.map((npc) => (
+                  <button
+                    key={npc.player_id}
+                    type="button"
+                    className={sheetTarget === npc.player_id ? 'ghost is-on' : 'ghost'}
+                    onClick={() => onSheetTarget(npc.player_id)}
+                  >
+                    {npc.name}
+                  </button>
+                ))}
+                <button type="button" className="ghost" onClick={onCreateNpc} title="Crear ficha de NPC">+ NPC</button>
+              </div>
+              {sheetTarget?.startsWith('npc-') ? (
+                <button type="button" className="ghost danger" onClick={() => onDeleteNpc(sheetTarget)}>Eliminar NPC</button>
+              ) : null}
             </div>
           ) : null}
           <CharacterSheet
@@ -71,6 +96,9 @@ export default function ChroniclePanel({
             rollDisabled={rollDisabled}
             onChange={sheetReadOnly ? undefined : onSheetChange}
             onRoll={onSheetRoll}
+            avatar={avatar}
+            onAvatar={onAvatar}
+            isOwn={isOwn}
           />
         </>
       ) : null}

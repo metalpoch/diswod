@@ -58,6 +58,12 @@ export function createGameSync(roomId, onChange) {
       if (ylog.length) ylog.delete(0, ylog.length)
     },
     renamePlayer(playerId, name) {
+      this.updatePlayer(playerId, { name })
+    },
+    setPlayerAvatar(playerId, avatar) {
+      this.updatePlayer(playerId, { avatar })
+    },
+    updatePlayer(playerId, patch) {
       const items = ylog.toArray()
       const next = items.map((item) => {
         let parsed = item
@@ -69,7 +75,7 @@ export function createGameSync(roomId, onChange) {
           }
         }
         if (parsed?.player?.id === playerId) {
-          return JSON.stringify({ ...parsed, player: { ...parsed.player, name } })
+          return JSON.stringify({ ...parsed, player: { ...parsed.player, ...patch } })
         }
         return item
       })

@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import Avatar from './Avatar'
+import AvatarCrop from './AvatarCrop'
 import {
   ATRIBUTOS,
   HABILIDADES,
@@ -84,7 +86,7 @@ function StatRow({ label, value, selected, readOnly, rollDisabled, onToggle, onC
         className={selected ? 'stat-name is-selected' : 'stat-name'}
         onClick={onToggle}
         disabled={readOnly}
-        title="Añadir o quitar de la tirada combinada"
+        title={label}
       >
         {label}
       </button>
@@ -102,7 +104,7 @@ function StatRow({ label, value, selected, readOnly, rollDisabled, onToggle, onC
   )
 }
 
-function VirtueRow({ id, name, nameOptions, value, selected, readOnly, rollDisabled, onName, onToggle, onValue, onRoll }) {
+function VirtueRow({ name, nameOptions, value, selected, readOnly, rollDisabled, onName, onToggle, onValue, onRoll }) {
   return (
     <div className="stat-row virtue-row">
       <button
@@ -234,6 +236,15 @@ function NumField({ label, value, readOnly, onChange, min, max }) {
   )
 }
 
+function Section({ title, children, className }) {
+  return (
+    <section className={className ? `sheet-section ${className}` : 'sheet-section'}>
+      <header className="sheet-section-head"><h3>{title}</h3></header>
+      <div className="sheet-section-body">{children}</div>
+    </section>
+  )
+}
+
 export default function CharacterSheet({
   sheet,
   readOnly,
@@ -241,9 +252,15 @@ export default function CharacterSheet({
   rollDisabled,
   onChange,
   onRoll,
+  avatar,
+  onAvatar,
+  isOwn,
 }) {
   const [difficulty, setDifficulty] = useState(6)
   const [pool, setPool] = useState([])
+  const [cropSrc, setCropSrc] = useState(null)
+  const [avatarError, setAvatarError] = useState('')
+  const fileRef = useRef(null)
 
   const togglePool = (id, label) => {
     setPool((prev) => (
@@ -299,9 +316,28 @@ export default function CharacterSheet({
   })
   const setEstado = (key, patch) => onChange?.({ ...sheet, [key]: { ...sheet[key], ...patch } })
 
+  const pickPhoto = (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setAvatarError('')
+    const reader = new FileReader()
+    reader.onload = () => setCropSrc(reader.result)
+    reader.readAsDataURL(file)
+  }
+
+  const confirmAvatar = async (file) => {
+    setCropSrc(null)
+    try {
+      await onAvatar?.(file)
+    } catch (err) {
+      setAvatarError(err.message || 'No se pudo subir la foto')
+    }
+  }
+
   const renderStatGroup = (title, group, getStat, setStatValue, idPrefix, specFor) => (
-    <section className="sheet-group">
-      <h3>{title}</h3>
+    <div className="sheet-stat-col">
+      <h4>{title}</h4>
       {group.map((key) => {
         const id = `${idPrefix}:${key}`
         const stat = getStat(key)
@@ -332,14 +368,40 @@ export default function CharacterSheet({
           </div>
         )
       })}
-    </section>
+    </div>
   )
 
   return (
-    <section className="tool-pane sheet">
-      <header>
-        <h2>Ficha de personaje</h2>
-        <small>{status}</small>
+    <>
+    <div className="sheet-paper">
+      <header className="sheet-masthead">
+        <div className="sheet-mast-title">
+          <span className="sheet-edition">Edición 20º Aniversario</span>
+          <h1>Vampiro: La Mascarada</h1>
+          <span className="sheet-edition">Hoja de personaje</span>
+        </div>
+        <div className="sheet-mast-side">
+          <Avatar name={sheet.header.nombre} src={avatar} size={46} />
+          {isOwn && onAvatar ? (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => fileRef.current?.click()}
+              title="Cambiar la foto de tu personaje"
+            >
+              {avatar ? 'Cambiar foto' : 'Añadir foto'}
+            </button>
+          ) : null}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="file-hidden"
+            onChange={pickPhoto}
+          />
+          {avatarError ? <span className="hint bad">{avatarError}</span> : null}
+          <small className="sheet-status">{status}</small>
+        </div>
       </header>
 
       <div className="sheet-rollbar">
@@ -362,204 +424,230 @@ export default function CharacterSheet({
         )}
       </div>
 
-      <div className="sheet-scroll">
-        <div className="sheet-head">
+      <div className="sheet-identity">
+        <div className="sheet-id-col">
           <Field label="Nombre" value={sheet.header.nombre} readOnly={readOnly} onChange={(v) => setHeader('nombre', v)} />
           <Field label="Jugador" value={sheet.header.jugador} readOnly={readOnly} onChange={(v) => setHeader('jugador', v)} />
           <Field label="Crónica" value={sheet.header.cronica} readOnly={readOnly} onChange={(v) => setHeader('cronica', v)} />
+        </div>
+        <div className="sheet-id-col">
           <ComboField label="Naturaleza" id="combo-naturaleza" value={sheet.header.naturaleza} options={ARQUETIPOS} readOnly={readOnly} onChange={(v) => setHeader('naturaleza', v)} />
           <ComboField label="Conducta" id="combo-conducta" value={sheet.header.conducta} options={ARQUETIPOS} readOnly={readOnly} onChange={(v) => setHeader('conducta', v)} />
           <ComboField label="Concepto" id="combo-concepto" value={sheet.header.concepto} options={CONCEPTOS} readOnly={readOnly} onChange={(v) => setHeader('concepto', v)} />
+        </div>
+        <div className="sheet-id-col">
           <ComboField label="Clan" id="combo-clan" value={sheet.header.clan} options={CLANES} readOnly={readOnly} onChange={(v) => setHeader('clan', v)} />
           <ComboField label="Generación" id="combo-generacion" value={sheet.header.generacion} options={GENERACIONES} readOnly={readOnly} onChange={(v) => setHeader('generacion', v)} />
           <Field label="Sire" value={sheet.header.sire} readOnly={readOnly} onChange={(v) => setHeader('sire', v)} />
+        </div>
+      </div>
+
+      <div className="sheet-body">
+        <div className="sheet-main">
+          <Section title="Atributos">
+            <div className="sheet-tri">
+              {renderStatGroup('Físicos', ATRIBUTOS.fisicos, (k) => sheet.atributos.fisicos[k], (k, s) => setAtributo('fisicos', k, s), 'a:fisicos', ESPECIALIDADES_ATRIBUTOS)}
+              {renderStatGroup('Sociales', ATRIBUTOS.sociales, (k) => sheet.atributos.sociales[k], (k, s) => setAtributo('sociales', k, s), 'a:sociales', ESPECIALIDADES_ATRIBUTOS)}
+              {renderStatGroup('Mentales', ATRIBUTOS.mentales, (k) => sheet.atributos.mentales[k], (k, s) => setAtributo('mentales', k, s), 'a:mentales', ESPECIALIDADES_ATRIBUTOS)}
+            </div>
+          </Section>
+          <Section title="Habilidades">
+            <div className="sheet-tri">
+              {renderStatGroup('Talentos', HABILIDADES.talentos, (k) => sheet.habilidades.talentos[k], (k, s) => setHabilidad('talentos', k, s), 'h:talentos', ESPECIALIDADES_HABILIDADES)}
+              {renderStatGroup('Técnicas', HABILIDADES.tecnicas, (k) => sheet.habilidades.tecnicas[k], (k, s) => setHabilidad('tecnicas', k, s), 'h:tecnicas', ESPECIALIDADES_HABILIDADES)}
+              {renderStatGroup('Conocimientos', HABILIDADES.conocimientos, (k) => sheet.habilidades.conocimientos[k], (k, s) => setHabilidad('conocimientos', k, s), 'h:conocimientos', ESPECIALIDADES_HABILIDADES)}
+            </div>
+          </Section>
+        </div>
+
+        <div className="sheet-side">
+          <Section title="Ventajas">
+            <div className="sheet-side-grid">
+              <div className="sheet-sub-col">
+                <h4>Disciplinas</h4>
+                {sheet.disciplinas.map((item, i) => (
+                  <NamedRow
+                    key={i}
+                    placeholder="Disciplina"
+                    options={DISCIPLINAS}
+                    item={item}
+                    index={i}
+                    selected={pool.some((p) => p.id === `d:${i}`)}
+                    readOnly={readOnly}
+                    rollDisabled={rollDisabled}
+                    onName={(idx, v) => setNamed('disciplinas', idx, { name: v })}
+                    onLevel={(idx, v) => setNamed('disciplinas', idx, { level: v })}
+                    onToggle={() => togglePool(`d:${i}`, item.name || 'Disciplina')}
+                    onRoll={() => rollOne(item.name || 'Disciplina', item.level)}
+                  />
+                ))}
+              </div>
+              <div className="sheet-sub-col">
+                <h4>Trasfondos</h4>
+                {sheet.trasfondos.map((item, i) => (
+                  <NamedRow
+                    key={i}
+                    placeholder="Trasfondo"
+                    options={TRASFONDOS}
+                    item={item}
+                    index={i}
+                    selected={pool.some((p) => p.id === `t:${i}`)}
+                    readOnly={readOnly}
+                    rollDisabled={rollDisabled}
+                    onName={(idx, v) => setNamed('trasfondos', idx, { name: v })}
+                    onLevel={(idx, v) => setNamed('trasfondos', idx, { level: v })}
+                    onToggle={() => togglePool(`t:${i}`, item.name || 'Trasfondo')}
+                    onRoll={() => rollOne(item.name || 'Trasfondo', item.level)}
+                  />
+                ))}
+              </div>
+              <div className="sheet-sub-col">
+                <h4>Virtudes</h4>
+                <VirtueRow
+                  name={sheet.virtudes.concienciaNombre}
+                  nameOptions={VIRTUD_CONCIENCIA}
+                  value={sheet.virtudes.conciencia}
+                  selected={pool.some((p) => p.id === 'v:conciencia')}
+                  readOnly={readOnly}
+                  rollDisabled={rollDisabled}
+                  onName={(v) => setVirtud('concienciaNombre', v)}
+                  onToggle={() => togglePool('v:conciencia', sheet.virtudes.concienciaNombre)}
+                  onValue={(v) => setVirtud('conciencia', v)}
+                  onRoll={() => rollOne(sheet.virtudes.concienciaNombre, sheet.virtudes.conciencia)}
+                />
+                <VirtueRow
+                  name={sheet.virtudes.autocontrolNombre}
+                  nameOptions={VIRTUD_AUTOCONTROL}
+                  value={sheet.virtudes.autocontrol}
+                  selected={pool.some((p) => p.id === 'v:autocontrol')}
+                  readOnly={readOnly}
+                  rollDisabled={rollDisabled}
+                  onName={(v) => setVirtud('autocontrolNombre', v)}
+                  onToggle={() => togglePool('v:autocontrol', sheet.virtudes.autocontrolNombre)}
+                  onValue={(v) => setVirtud('autocontrol', v)}
+                  onRoll={() => rollOne(sheet.virtudes.autocontrolNombre, sheet.virtudes.autocontrol)}
+                />
+                <StatRow
+                  label="Coraje"
+                  value={sheet.virtudes.coraje}
+                  selected={pool.some((p) => p.id === 'v:coraje')}
+                  readOnly={readOnly}
+                  rollDisabled={rollDisabled}
+                  onToggle={() => togglePool('v:coraje', 'Coraje')}
+                  onChange={(v) => setVirtud('coraje', v)}
+                  onRoll={() => rollOne('Coraje', sheet.virtudes.coraje)}
+                />
+                <div className="sheet-sub">
+                  <ComboField label="Senda" id="combo-senda" value={sheet.senda.nombre} options={SENDAS} readOnly={readOnly} onChange={(v) => setSenda('nombre', v)} />
+                  <NumField label="Nivel de senda" value={sheet.senda.nivel} min={0} max={10} readOnly={readOnly} onChange={(v) => setSenda('nivel', v)} />
+                  <Field label="Debilidad" value={sheet.senda.debilidad} readOnly={readOnly} onChange={(v) => setSenda('debilidad', v)} />
+                </div>
+              </div>
+            </div>
+          </Section>
+
+          <Section title="Méritos y Defectos">
+            <div className="sheet-side-grid two">
+              <div className="sheet-sub-col">
+                <h4>Méritos (coste +)</h4>
+                {sheet.meritos.map((item, i) => (
+                  <CostRow
+                    key={i}
+                    label="Mérito"
+                    options={MERITOS}
+                    item={item}
+                    index={i}
+                    readOnly={readOnly}
+                    onName={(idx, v) => setNamed('meritos', idx, { name: v })}
+                    onCost={(idx, v) => setNamed('meritos', idx, { cost: v })}
+                  />
+                ))}
+              </div>
+              <div className="sheet-sub-col">
+                <h4>Defectos (coste −)</h4>
+                {sheet.defectos.map((item, i) => (
+                  <CostRow
+                    key={i}
+                    label="Defecto"
+                    options={DEFECTOS}
+                    item={item}
+                    index={i}
+                    readOnly={readOnly}
+                    onName={(idx, v) => setNamed('defectos', idx, { name: v })}
+                    onCost={(idx, v) => setNamed('defectos', idx, { cost: v })}
+                  />
+                ))}
+              </div>
+            </div>
+          </Section>
+        </div>
+      </div>
+
+      <div className="sheet-state">
+        <Section title="Salud">
+          <div className="health-grid">
+            {HEALTH_LEVELS.map((level, i) => {
+              const state = sheet.salud[i] || 0
+              return (
+                <button
+                  key={level}
+                  type="button"
+                  className={state > 0 ? `health is-${state}` : 'health'}
+                  disabled={readOnly}
+                  onClick={() => onChange?.({
+                    ...sheet,
+                    salud: sheet.salud.map((n, j) => (j === i ? (n + 1) % 4 : n)),
+                  })}
+                  title={`${level} (penalización ${HEALTH_PENALTIES[i]})`}
+                >
+                  <span className="health-sym">{HEALTH_SYMBOLS[state]}</span>
+                  <span className="health-name">{level}</span>
+                  <span className="health-pen">{HEALTH_PENALTIES[i]}</span>
+                </button>
+              )
+            })}
+          </div>
+        </Section>
+
+        <Section title="Fuerza de Voluntad y Reservas">
+          <div className="sheet-reserve">
+            <div className="sheet-reserve-item">
+              <h4>Fuerza de Voluntad</h4>
+              <Dots value={sheet.fuerzaVoluntad.max} max={10} readOnly={readOnly} onChange={(v) => setEstado('fuerzaVoluntad', { max: v, actual: sheet.fuerzaVoluntad.actual })} />
+              <NumField label="Actual" value={sheet.fuerzaVoluntad.actual} min={0} max={sheet.fuerzaVoluntad.max} readOnly={readOnly} onChange={(v) => setEstado('fuerzaVoluntad', { max: sheet.fuerzaVoluntad.max, actual: v })} />
+            </div>
+            <div className="sheet-reserve-item">
+              <h4>Reserva de Sangre</h4>
+              <NumField label="Máx." value={sheet.sangre.max} min={0} readOnly={readOnly} onChange={(v) => setEstado('sangre', { ...sheet.sangre, max: v })} />
+              <NumField label="Actual" value={sheet.sangre.actual} min={0} max={sheet.sangre.max} readOnly={readOnly} onChange={(v) => setEstado('sangre', { ...sheet.sangre, actual: v })} />
+              <NumField label="Sangre por turno" value={sheet.sangre.porTurno} min={0} readOnly={readOnly} onChange={(v) => setEstado('sangre', { ...sheet.sangre, porTurno: v })} />
+            </div>
+            <div className="sheet-reserve-item">
+              <h4>Experiencia</h4>
+              <NumField label="Total" value={sheet.experiencia.total} min={0} readOnly={readOnly} onChange={(v) => setEstado('experiencia', { ...sheet.experiencia, total: v })} />
+              <NumField label="Gastada" value={sheet.experiencia.gastada} min={0} readOnly={readOnly} onChange={(v) => setEstado('experiencia', { ...sheet.experiencia, gastada: v })} />
+            </div>
+          </div>
+        </Section>
+      </div>
+
+      <footer className="sheet-footer">
+        <div className="sheet-footer-item">
           <ComboField label="Porte" id="combo-porte" value={sheet.header.porte} options={PORTES} readOnly={readOnly} onChange={(v) => setHeader('porte', v)} />
+        </div>
+        <div className="sheet-footer-item">
           <Field label="Grado de Porte" value={sheet.header.gradoPorte} readOnly={readOnly} onChange={(v) => setHeader('gradoPorte', v)} />
         </div>
-
-        <h2 className="sheet-section-title">Atributos</h2>
-        <div className="sheet-grid">
-          {renderStatGroup('Físicos', ATRIBUTOS.fisicos, (k) => sheet.atributos.fisicos[k], (k, s) => setAtributo('fisicos', k, s), 'a:fisicos', ESPECIALIDADES_ATRIBUTOS)}
-          {renderStatGroup('Sociales', ATRIBUTOS.sociales, (k) => sheet.atributos.sociales[k], (k, s) => setAtributo('sociales', k, s), 'a:sociales', ESPECIALIDADES_ATRIBUTOS)}
-          {renderStatGroup('Mentales', ATRIBUTOS.mentales, (k) => sheet.atributos.mentales[k], (k, s) => setAtributo('mentales', k, s), 'a:mentales', ESPECIALIDADES_ATRIBUTOS)}
-        </div>
-
-        <h2 className="sheet-section-title">Habilidades</h2>
-        <div className="sheet-grid">
-          {renderStatGroup('Talentos', HABILIDADES.talentos, (k) => sheet.habilidades.talentos[k], (k, s) => setHabilidad('talentos', k, s), 'h:talentos', ESPECIALIDADES_HABILIDADES)}
-          {renderStatGroup('Técnicas', HABILIDADES.tecnicas, (k) => sheet.habilidades.tecnicas[k], (k, s) => setHabilidad('tecnicas', k, s), 'h:tecnicas', ESPECIALIDADES_HABILIDADES)}
-          {renderStatGroup('Conocimientos', HABILIDADES.conocimientos, (k) => sheet.habilidades.conocimientos[k], (k, s) => setHabilidad('conocimientos', k, s), 'h:conocimientos', ESPECIALIDADES_HABILIDADES)}
-        </div>
-
-        <h2 className="sheet-section-title">Ventajas</h2>
-        <div className="sheet-grid">
-          <section className="sheet-group">
-            <h3>Disciplinas</h3>
-            {sheet.disciplinas.map((item, i) => (
-              <NamedRow
-                key={i}
-                placeholder="Disciplina"
-                options={DISCIPLINAS}
-                item={item}
-                index={i}
-                selected={pool.some((p) => p.id === `d:${i}`)}
-                readOnly={readOnly}
-                rollDisabled={rollDisabled}
-                onName={(idx, v) => setNamed('disciplinas', idx, { name: v })}
-                onLevel={(idx, v) => setNamed('disciplinas', idx, { level: v })}
-                onToggle={() => togglePool(`d:${i}`, item.name || 'Disciplina')}
-                onRoll={() => rollOne(item.name || 'Disciplina', item.level)}
-              />
-            ))}
-          </section>
-          <section className="sheet-group">
-            <h3>Trasfondos</h3>
-            {sheet.trasfondos.map((item, i) => (
-              <NamedRow
-                key={i}
-                placeholder="Trasfondo"
-                options={TRASFONDOS}
-                item={item}
-                index={i}
-                selected={pool.some((p) => p.id === `t:${i}`)}
-                readOnly={readOnly}
-                rollDisabled={rollDisabled}
-                onName={(idx, v) => setNamed('trasfondos', idx, { name: v })}
-                onLevel={(idx, v) => setNamed('trasfondos', idx, { level: v })}
-                onToggle={() => togglePool(`t:${i}`, item.name || 'Trasfondo')}
-                onRoll={() => rollOne(item.name || 'Trasfondo', item.level)}
-              />
-            ))}
-          </section>
-          <section className="sheet-group">
-            <h3>Virtudes</h3>
-            <VirtueRow
-              id="v:conciencia"
-              name={sheet.virtudes.concienciaNombre}
-              nameOptions={VIRTUD_CONCIENCIA}
-              value={sheet.virtudes.conciencia}
-              selected={pool.some((p) => p.id === 'v:conciencia')}
-              readOnly={readOnly}
-              rollDisabled={rollDisabled}
-              onName={(v) => setVirtud('concienciaNombre', v)}
-              onToggle={() => togglePool('v:conciencia', sheet.virtudes.concienciaNombre)}
-              onValue={(v) => setVirtud('conciencia', v)}
-              onRoll={() => rollOne(sheet.virtudes.concienciaNombre, sheet.virtudes.conciencia)}
-            />
-            <VirtueRow
-              id="v:autocontrol"
-              name={sheet.virtudes.autocontrolNombre}
-              nameOptions={VIRTUD_AUTOCONTROL}
-              value={sheet.virtudes.autocontrol}
-              selected={pool.some((p) => p.id === 'v:autocontrol')}
-              readOnly={readOnly}
-              rollDisabled={rollDisabled}
-              onName={(v) => setVirtud('autocontrolNombre', v)}
-              onToggle={() => togglePool('v:autocontrol', sheet.virtudes.autocontrolNombre)}
-              onValue={(v) => setVirtud('autocontrol', v)}
-              onRoll={() => rollOne(sheet.virtudes.autocontrolNombre, sheet.virtudes.autocontrol)}
-            />
-            <StatRow
-              label="Coraje"
-              value={sheet.virtudes.coraje}
-              selected={pool.some((p) => p.id === 'v:coraje')}
-              readOnly={readOnly}
-              rollDisabled={rollDisabled}
-              onToggle={() => togglePool('v:coraje', 'Coraje')}
-              onChange={(v) => setVirtud('coraje', v)}
-              onRoll={() => rollOne('Coraje', sheet.virtudes.coraje)}
-            />
-            <div className="sheet-sub">
-              <ComboField label="Senda" id="combo-senda" value={sheet.senda.nombre} options={SENDAS} readOnly={readOnly} onChange={(v) => setSenda('nombre', v)} />
-              <NumField label="Nivel de senda" value={sheet.senda.nivel} min={0} max={10} readOnly={readOnly} onChange={(v) => setSenda('nivel', v)} />
-              <Field label="Debilidad" value={sheet.senda.debilidad} readOnly={readOnly} onChange={(v) => setSenda('debilidad', v)} />
-            </div>
-          </section>
-        </div>
-
-        <h2 className="sheet-section-title">Méritos y defectos</h2>
-        <div className="sheet-grid two">
-          <section className="sheet-group">
-            <h3>Méritos (coste +)</h3>
-            {sheet.meritos.map((item, i) => (
-              <CostRow
-                key={i}
-                label="Mérito"
-                options={MERITOS}
-                item={item}
-                index={i}
-                readOnly={readOnly}
-                onName={(idx, v) => setNamed('meritos', idx, { name: v })}
-                onCost={(idx, v) => setNamed('meritos', idx, { cost: v })}
-              />
-            ))}
-          </section>
-          <section className="sheet-group">
-            <h3>Defectos (coste −)</h3>
-            {sheet.defectos.map((item, i) => (
-              <CostRow
-                key={i}
-                label="Defecto"
-                options={DEFECTOS}
-                item={item}
-                index={i}
-                readOnly={readOnly}
-                onName={(idx, v) => setNamed('defectos', idx, { name: v })}
-                onCost={(idx, v) => setNamed('defectos', idx, { cost: v })}
-              />
-            ))}
-          </section>
-        </div>
-
-        <h2 className="sheet-section-title">Estado</h2>
-        <div className="sheet-grid">
-          <section className="sheet-group">
-            <h3>Salud</h3>
-            <div className="health-grid">
-              {HEALTH_LEVELS.map((level, i) => {
-                const state = sheet.salud[i] || 0
-                return (
-                  <button
-                    key={level}
-                    type="button"
-                    className={state > 0 ? `health is-${state}` : 'health'}
-                    disabled={readOnly}
-                    onClick={() => onChange?.({
-                      ...sheet,
-                      salud: sheet.salud.map((n, j) => (j === i ? (n + 1) % 4 : n)),
-                    })}
-                    title={`${level} (penalización ${HEALTH_PENALTIES[i]})`}
-                  >
-                    <span className="health-sym">{HEALTH_SYMBOLS[state]}</span>
-                    <span className="health-name">{level}</span>
-                    <span className="health-pen">{HEALTH_PENALTIES[i]}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-
-          <section className="sheet-group">
-            <h3>Fuerza de Voluntad</h3>
-            <div className="stat-row">
-              <span className="stat-name static">Máx.</span>
-              <Dots value={sheet.fuerzaVoluntad.max} max={10} readOnly={readOnly} onChange={(v) => setEstado('fuerzaVoluntad', { max: v, actual: sheet.fuerzaVoluntad.actual })} />
-            </div>
-            <NumField label="Actual" value={sheet.fuerzaVoluntad.actual} min={0} max={sheet.fuerzaVoluntad.max} readOnly={readOnly} onChange={(v) => setEstado('fuerzaVoluntad', { max: sheet.fuerzaVoluntad.max, actual: v })} />
-
-            <h3>Reserva de sangre</h3>
-            <NumField label="Máx." value={sheet.sangre.max} min={0} readOnly={readOnly} onChange={(v) => setEstado('sangre', { ...sheet.sangre, max: v })} />
-            <NumField label="Actual" value={sheet.sangre.actual} min={0} max={sheet.sangre.max} readOnly={readOnly} onChange={(v) => setEstado('sangre', { ...sheet.sangre, actual: v })} />
-            <NumField label="Sangre por turno" value={sheet.sangre.porTurno} min={0} readOnly={readOnly} onChange={(v) => setEstado('sangre', { ...sheet.sangre, porTurno: v })} />
-
-            <h3>Experiencia</h3>
-            <NumField label="Total" value={sheet.experiencia.total} min={0} readOnly={readOnly} onChange={(v) => setEstado('experiencia', { ...sheet.experiencia, total: v })} />
-            <NumField label="Gastada" value={sheet.experiencia.gastada} min={0} readOnly={readOnly} onChange={(v) => setEstado('experiencia', { ...sheet.experiencia, gastada: v })} />
-          </section>
-        </div>
-
         <p className="muted sheet-budget">{POINT_BUDGET}</p>
+      </footer>
       </div>
-    </section>
+      {cropSrc ? (
+        <AvatarCrop
+          src={cropSrc}
+          onCancel={() => setCropSrc(null)}
+          onConfirm={confirmAvatar}
+        />
+      ) : null}
+    </>
   )
 }

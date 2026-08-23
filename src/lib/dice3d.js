@@ -430,9 +430,13 @@ export function planDice(entry, seatIndex) {
   if (toward.lengthSq() < 0.001) toward.set(0, 0, -1)
   toward.normalize()
   const side = new THREE.Vector3(-toward.z, 0, toward.x)
-  const raw = result.type === 'wod'
-    ? result.dice.map((d) => ({ value: d.value, sides: 10, meta: d, type: 'wod' }))
-    : result.dice.map((value) => ({ value, sides: result.sides, meta: null, type: 'generic' }))
+  const raw = result.type === 'multi'
+    ? result.pools.flatMap((pool) => (pool.type === 'wod'
+      ? pool.dice.map((d) => ({ value: d.value, sides: 10, meta: d, type: 'wod' }))
+      : pool.dice.map((value) => ({ value, sides: pool.sides, meta: null, type: 'generic' }))))
+    : result.type === 'wod'
+      ? result.dice.map((d) => ({ value: d.value, sides: 10, meta: d, type: 'wod' }))
+      : result.dice.map((value) => ({ value, sides: result.sides, meta: null, type: 'generic' }))
   const list = raw.slice(0, 16)
   return list.map((die, i) => {
     const col = i % 4

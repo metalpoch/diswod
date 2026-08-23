@@ -103,6 +103,10 @@ export function useGameLog(roomId, identity, persist) {
     syncRef.current?.renamePlayer(playerId, name)
   }
 
+  const setPlayerAvatar = (playerId, avatar) => {
+    syncRef.current?.setPlayerAvatar(playerId, avatar)
+  }
+
   return {
     entries: mergeEntries(stored, live),
     remotes,
@@ -111,5 +115,6 @@ export function useGameLog(roomId, identity, persist) {
     addEntry,
     clear,
     renamePlayer,
+    setPlayerAvatar,
   }
 }

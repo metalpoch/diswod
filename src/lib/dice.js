@@ -74,8 +74,34 @@ export function rollGeneric(count, sides, modifier, rng = defaultRng) {
   }
 }
 
+export function rollMulti(pools, rng = defaultRng) {
+  const rolled = pools.map((pool) => (pool.type === 'wod'
+    ? rollWod(pool.count, pool.difficulty, rng)
+    : rollGeneric(pool.count, pool.sides, pool.modifier, rng)))
+  const allWod = rolled.every((r) => r.type === 'wod')
+  const allGeneric = rolled.every((r) => r.type === 'generic')
+  const out = { type: 'multi', pools: rolled }
+  if (allWod) {
+    out.successes = rolled.reduce((acc, r) => acc + r.successes, 0)
+    out.rawSuccesses = rolled.reduce((acc, r) => acc + r.rawSuccesses, 0)
+    out.failures = rolled.reduce((acc, r) => acc + r.failures, 0)
+    out.ones = rolled.reduce((acc, r) => acc + r.ones, 0)
+    out.botch = out.rawSuccesses === 0 && out.ones > 0
+  } else if (allGeneric) {
+    out.total = rolled.reduce((acc, r) => acc + r.total, 0)
+  }
+  return out
+}
+
 export function executeParsed(parsed, rng = defaultRng) {
   if (!parsed?.ok) return null
+  if (parsed.type === 'multi') {
+    return {
+      ...rollMulti(parsed.pools, rng),
+      description: parsed.description,
+      command: parsed.command,
+    }
+  }
   if (parsed.type === 'wod') {
     return {
       ...rollWod(parsed.count, parsed.difficulty, rng),
@@ -104,8 +130,25 @@ export function formatGenericLine(result) {
   return `${label}: ${result.total} (Dados: ${dicePart} + Mod: ${result.modifier})`
 }
 
+export function formatMultiLine(result) {
+  const label = result.description || 'Roll'
+  const parts = result.pools.map((pool) => (pool.type === 'wod'
+    ? `[${pool.values.join(', ')}]`
+    : `[${pool.dice.join(', ')}]`))
+  const dicePart = parts.join(' + ')
+  if (result.botch != null) {
+    const prefix = result.botch ? 'BOTCH — ' : ''
+    return `${label}: ${dicePart} = ${prefix}${result.successes} successes (${result.failures} failures)`
+  }
+  if (result.total != null) {
+    return `${label}: ${dicePart} = ${result.total}`
+  }
+  return `${label}: ${dicePart}`
+}
+
 export function formatResultLine(result) {
   if (result.type === 'wod') return formatWodLine(result)
+  if (result.type === 'multi') return formatMultiLine(result)
   return formatGenericLine(result)
 }
 

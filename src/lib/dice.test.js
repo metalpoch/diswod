@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultRng, executeParsed, formatGenericLine, formatWodLine, rollGeneric, rollWod } from './dice'
+import { defaultRng, executeParsed, formatGenericLine, formatMultiLine, formatWodLine, rollGeneric, rollMulti, rollWod } from './dice'
 import { parseCommand } from './parser'
 
 function seq(values) {
@@ -73,10 +73,45 @@ describe('rollGeneric', () => {
   })
 })
 
+describe('rollMulti', () => {
+  it('aggregates successes across WOD pools', () => {
+    const result = rollMulti(
+      [{ type: 'wod', count: 2, difficulty: 6 }, { type: 'wod', count: 1, difficulty: 8 }],
+      seq([10, 1, 8, 9]),
+    )
+    expect(result.type).toBe('multi')
+    expect(result.pools).toHaveLength(2)
+    expect(result.successes).toBeGreaterThanOrEqual(0)
+    expect(result.botch).toBe(false)
+  })
+
+  it('formats a combined WOD line', () => {
+    const result = rollMulti(
+      [{ type: 'wod', count: 2, difficulty: 6 }, { type: 'wod', count: 2, difficulty: 8 }],
+      seq([8, 6, 5, 3]),
+    )
+    expect(formatMultiLine({ ...result, description: 'Disparo doble' })).toMatch(/\[8, 6\] \+ \[5, 3\] = \d+ successes/)
+  })
+
+  it('sums totals for combined generic pools', () => {
+    const result = rollMulti(
+      [{ type: 'generic', count: 1, sides: 6, modifier: 0 }, { type: 'generic', count: 1, sides: 6, modifier: 0 }],
+      seq([4, 3]),
+    )
+    expect(result.total).toBe(7)
+  })
+})
+
 describe('executeParsed', () => {
   it('rolls from a parsed WOD command', () => {
-    const result = executeParsed(parseCommand('/r 3d5 ataque con espada'), seq([8, 6, 5]))
-    expect(result.command).toBe('/r 3d5 ataque con espada')
+    const result = executeParsed(parseCommand('/r 3wod5 ataque con espada'), seq([8, 6, 5]))
+    expect(result.command).toBe('/r 3wod5 ataque con espada')
     expect(formatWodLine(result)).toBe('ataque con espada: [8, 6, 5] = 3 successes (0 failures)')
+  })
+
+  it('rolls a combined command', () => {
+    const result = executeParsed(parseCommand('/r 2wod6 + 2wod8'), seq([8, 6, 7, 5]))
+    expect(result.type).toBe('multi')
+    expect(formatMultiLine({ ...result, description: '' })).toMatch(/\[8, 6\] \+ \[7, 5\]/)
   })
 })
