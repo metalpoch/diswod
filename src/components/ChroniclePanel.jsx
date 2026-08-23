@@ -26,7 +26,8 @@ export default function ChroniclePanel({
   sheetTarget,
   onSheetTarget,
   onSheetChange,
-  onSheetRoll,
+  onCompose,
+  diceText,
   rollDisabled,
   npcs,
   onCreateNpc,
@@ -101,7 +102,8 @@ export default function ChroniclePanel({
             status={sheetStatus}
             rollDisabled={rollDisabled}
             onChange={sheetReadOnly ? undefined : onSheetChange}
-            onRoll={onSheetRoll}
+            onCompose={onCompose}
+            diceText={diceText}
             avatar={avatar}
             onAvatar={onAvatar}
             isOwn={isOwn}

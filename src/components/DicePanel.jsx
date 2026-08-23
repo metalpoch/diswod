@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { parseCommand, previewCommand } from '../lib/parser'
 
-export default function DicePanel({ onRoll, disabled, reason, lastCommands }) {
-  const [value, setValue] = useState('')
+export default function DicePanel({ onRoll, disabled, reason, lastCommands, value, onChange }) {
   const [rolling, setRolling] = useState(false)
   const [cursor, setCursor] = useState(-1)
 
@@ -19,7 +18,7 @@ export default function DicePanel({ onRoll, disabled, reason, lastCommands }) {
     if (!canRoll) return
     setRolling(true)
     await onRoll(parsed)
-    setValue('')
+    onChange('')
     window.setTimeout(() => setRolling(false), 420)
   }
 
@@ -33,17 +32,17 @@ export default function DicePanel({ onRoll, disabled, reason, lastCommands }) {
       event.preventDefault()
       const next = Math.min((cursor < 0 ? 0 : cursor + 1), lastCommands.length - 1)
       setCursor(next)
-      setValue(lastCommands[next])
+      onChange(lastCommands[next])
     }
     if (event.key === 'ArrowDown' && lastCommands?.length) {
       event.preventDefault()
       const next = cursor - 1
       if (next < 0) {
         setCursor(-1)
-        setValue('')
+        onChange('')
       } else {
         setCursor(next)
-        setValue(lastCommands[next])
+        onChange(lastCommands[next])
       }
     }
   }
@@ -53,7 +52,7 @@ export default function DicePanel({ onRoll, disabled, reason, lastCommands }) {
       <div className="field">
         <input
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="/r 4wod6 ataque con espada"
           spellCheck={false}

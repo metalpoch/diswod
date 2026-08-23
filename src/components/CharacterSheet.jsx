@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Avatar from './Avatar'
 import AvatarCrop from './AvatarCrop'
 import {
@@ -251,24 +251,16 @@ export default function CharacterSheet({
   status,
   rollDisabled,
   onChange,
-  onRoll,
+  onCompose,
+  diceText,
   avatar,
   onAvatar,
   isOwn,
 }) {
-  const [difficulty, setDifficulty] = useState(6)
   const [pool, setPool] = useState([])
   const [cropSrc, setCropSrc] = useState(null)
   const [avatarError, setAvatarError] = useState('')
   const fileRef = useRef(null)
-
-  const togglePool = (id, label) => {
-    setPool((prev) => (
-      prev.some((p) => p.id === id)
-        ? prev.filter((p) => p.id !== id)
-        : [...prev, { id, label }]
-    ))
-  }
 
   const statValue = (s) => (s && typeof s === 'object' ? Number(s.v) || 0 : Number(s) || 0)
 
@@ -282,16 +274,31 @@ export default function CharacterSheet({
     return 0
   }
 
-  const poolTotal = pool.reduce((acc, p) => acc + valueOf(p.id), 0)
-  const rollOne = (label, count) => {
+  const composeFromPool = (nextPool) => {
+    const total = nextPool.reduce((acc, p) => acc + valueOf(p.id), 0)
+    if (!total) {
+      onCompose?.(null)
+      return
+    }
+    onCompose?.({ count: total, description: nextPool.map((p) => p.label).join(' + ') })
+  }
+
+  const togglePool = (id, label) => {
+    const exists = pool.some((p) => p.id === id)
+    const next = exists ? pool.filter((p) => p.id !== id) : [...pool, { id, label }]
+    setPool(next)
+    composeFromPool(next)
+  }
+
+  const composeOne = (label, count) => {
     if (!count) return
-    onRoll?.({ count, difficulty, description: label })
-  }
-  const rollPool = () => {
-    if (!poolTotal) return
-    onRoll?.({ count: poolTotal, difficulty, description: pool.map((p) => p.label).join(' + ') })
     setPool([])
+    onCompose?.({ count, description: label })
   }
+
+  useEffect(() => {
+    if (!diceText) setPool([])
+  }, [diceText])
 
   const setHeader = (key, value) => onChange?.({ ...sheet, header: { ...sheet.header, [key]: value } })
   const setAtributo = (group, key, patch) => {
@@ -353,7 +360,7 @@ export default function CharacterSheet({
               rollDisabled={rollDisabled}
               onToggle={() => togglePool(id, key)}
               onChange={(v) => setStatValue(key, { ...stat, v })}
-              onRoll={() => rollOne(key, statValue(stat))}
+              onRoll={() => composeOne(key, statValue(stat))}
             />
             {specs.length > 0 ? (
               <Combo
@@ -405,23 +412,7 @@ export default function CharacterSheet({
       </header>
 
       <div className="sheet-rollbar">
-        <div className="difficulty">
-          <span>Dificultad</span>
-          <button type="button" className="ghost" onClick={() => setDifficulty((d) => Math.max(2, d - 1))} disabled={readOnly}>−</button>
-          <strong>{difficulty}</strong>
-          <button type="button" className="ghost" onClick={() => setDifficulty((d) => Math.min(10, d + 1))} disabled={readOnly}>+</button>
-          <small>la fija el Narrador</small>
-        </div>
-        {pool.length > 0 ? (
-          <div className="pool">
-            <span className="pool-label">{pool.map((p) => p.label).join(' + ')}</span>
-            <strong className="pool-total">{poolTotal}d10</strong>
-            <button type="button" className="primary" onClick={rollPool} disabled={!poolTotal || rollDisabled}>Tirar</button>
-            <button type="button" className="ghost" onClick={() => setPool([])}>Limpiar</button>
-          </div>
-        ) : (
-          <p className="muted sheet-hint">Toca un nombre para combinar (p. ej. Destreza + Alerta) o el dado para tirar directo.</p>
-        )}
+        <p className="muted sheet-hint">Toca un nombre para sumar a la tirada, o el dado para una tirada simple. La tirada se arma abajo, en el campo de dados.</p>
       </div>
 
       <div className="sheet-identity">
@@ -478,7 +469,7 @@ export default function CharacterSheet({
                     onName={(idx, v) => setNamed('disciplinas', idx, { name: v })}
                     onLevel={(idx, v) => setNamed('disciplinas', idx, { level: v })}
                     onToggle={() => togglePool(`d:${i}`, item.name || 'Disciplina')}
-                    onRoll={() => rollOne(item.name || 'Disciplina', item.level)}
+                    onRoll={() => composeOne(item.name || 'Disciplina', item.level)}
                   />
                 ))}
               </div>
@@ -497,7 +488,7 @@ export default function CharacterSheet({
                     onName={(idx, v) => setNamed('trasfondos', idx, { name: v })}
                     onLevel={(idx, v) => setNamed('trasfondos', idx, { level: v })}
                     onToggle={() => togglePool(`t:${i}`, item.name || 'Trasfondo')}
-                    onRoll={() => rollOne(item.name || 'Trasfondo', item.level)}
+                    onRoll={() => composeOne(item.name || 'Trasfondo', item.level)}
                   />
                 ))}
               </div>
@@ -513,7 +504,7 @@ export default function CharacterSheet({
                   onName={(v) => setVirtud('concienciaNombre', v)}
                   onToggle={() => togglePool('v:conciencia', sheet.virtudes.concienciaNombre)}
                   onValue={(v) => setVirtud('conciencia', v)}
-                  onRoll={() => rollOne(sheet.virtudes.concienciaNombre, sheet.virtudes.conciencia)}
+                  onRoll={() => composeOne(sheet.virtudes.concienciaNombre, sheet.virtudes.conciencia)}
                 />
                 <VirtueRow
                   name={sheet.virtudes.autocontrolNombre}
@@ -525,7 +516,7 @@ export default function CharacterSheet({
                   onName={(v) => setVirtud('autocontrolNombre', v)}
                   onToggle={() => togglePool('v:autocontrol', sheet.virtudes.autocontrolNombre)}
                   onValue={(v) => setVirtud('autocontrol', v)}
-                  onRoll={() => rollOne(sheet.virtudes.autocontrolNombre, sheet.virtudes.autocontrol)}
+                  onRoll={() => composeOne(sheet.virtudes.autocontrolNombre, sheet.virtudes.autocontrol)}
                 />
                 <StatRow
                   label="Coraje"
@@ -535,7 +526,7 @@ export default function CharacterSheet({
                   rollDisabled={rollDisabled}
                   onToggle={() => togglePool('v:coraje', 'Coraje')}
                   onChange={(v) => setVirtud('coraje', v)}
-                  onRoll={() => rollOne('Coraje', sheet.virtudes.coraje)}
+                  onRoll={() => composeOne('Coraje', sheet.virtudes.coraje)}
                 />
                 <div className="sheet-sub">
                   <ComboField label="Senda" id="combo-senda" value={sheet.senda.nombre} options={SENDAS} readOnly={readOnly} onChange={(v) => setSenda('nombre', v)} />

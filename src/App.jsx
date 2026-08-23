@@ -53,6 +53,7 @@ export default function App() {
   const [panelW, setPanelW] = useState(380)
   const [dragging, setDragging] = useState(false)
   const mainRef = useRef(null)
+  const [diceText, setDiceText] = useState('')
 
   const persist = persistOn && archive.current && !skipSave
     ? { enabled: true, mesaId: archive.current.id, sessionId: archive.current.currentSessionId }
@@ -161,16 +162,15 @@ export default function App() {
     })
   }
 
-  const onSheetRoll = ({ count, difficulty, description }) => {
-    if (!count) return
-    onRoll({
-      ok: true,
-      type: 'wod',
-      count,
-      difficulty,
-      description,
-      command: `/r ${count}wod${difficulty}${description ? ` ${description}` : ''}`,
-    })
+  const composeSheetRoll = (payload) => {
+    if (!payload) {
+      setDiceText('')
+      return
+    }
+    const match = diceText.match(/(?:^|\s)(\d+)wod(\d+)/)
+    const difficulty = match ? Number(match[2]) : 6
+    const description = payload.description ? ` ${payload.description}` : ''
+    setDiceText(`/r ${payload.count}wod${difficulty}${description}`)
   }
 
   const createNpc = async () => {
@@ -449,7 +449,8 @@ export default function App() {
           sheetTarget={sheetTarget}
           onSheetTarget={setSheetTarget}
           onSheetChange={sheet.update}
-          onSheetRoll={onSheetRoll}
+          onCompose={composeSheetRoll}
+          diceText={diceText}
           rollDisabled={rollBlocked}
           npcs={npcs.npcs}
           onCreateNpc={createNpc}
@@ -491,6 +492,8 @@ export default function App() {
           ? 'El Narrador te ha silenciado.'
           : ''}
         lastCommands={lastCommands}
+        value={diceText}
+        onChange={setDiceText}
       />
       {persist.enabled && archive.pendingCharName ? (
         <CharacterGate
