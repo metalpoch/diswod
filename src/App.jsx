@@ -53,7 +53,6 @@ export default function App() {
   const [panelW, setPanelW] = useState(380)
   const [dragging, setDragging] = useState(false)
   const mainRef = useRef(null)
-  const bgFileRef = useRef(null)
 
   const persist = persistOn && archive.current && !skipSave
     ? { enabled: true, mesaId: archive.current.id, sessionId: archive.current.currentSessionId }
@@ -396,34 +395,6 @@ export default function App() {
           >
             Mesa 3D
           </button>
-          {persist.enabled && party.isDm ? (
-            <>
-              <button
-                type="button"
-                className={backgroundUrl ? 'ghost is-on' : 'ghost'}
-                onClick={() => bgFileRef.current?.click()}
-                title="Subir una imagen de ubicación como fondo de la mesa"
-              >
-                Fondo
-              </button>
-              {backgroundUrl ? (
-                <button type="button" className="ghost" onClick={clearBackground} title="Quitar el fondo de la mesa">
-                  Quitar fondo
-                </button>
-              ) : null}
-              <input
-                ref={bgFileRef}
-                type="file"
-                accept="image/*"
-                className="file-hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  e.target.value = ''
-                  setBackground(file)
-                }}
-              />
-            </>
-          ) : null}
           <Help />
         </div>
       </header>
@@ -486,6 +457,9 @@ export default function App() {
           avatar={activity.identity?.avatar}
           onAvatar={changeAvatar}
           isOwn={viewingPlayerId === activity.identity?.id}
+          backgroundUrl={backgroundUrl}
+          onSetBackground={setBackground}
+          onClearBackground={clearBackground}
         />
         {showTable && !isMobile ? (
           <div

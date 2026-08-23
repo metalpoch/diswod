@@ -17,27 +17,33 @@ export default function Help() {
         ?
       </button>
       {open && (
-        <div className="help-pop">
-          <h3>Comandos</h3>
-          <ul>
-            {EXAMPLES.map(([cmd, text]) => (
-              <li key={cmd}>
-                <code>{cmd}</code>
-                <span>{text}</span>
-              </li>
-            ))}
-          </ul>
-          <p>WOD (<code>NwodD</code>): los 10 explotan, los 1 anulan éxitos. Dificultad 2–10.</p>
-          <p>Genérico (<code>NdS</code>): suma los dados, con modificador opcional (<code>/r 1d10+0</code>).</p>
-          <p>Suma (<code>+</code>): lanza varias reservas a la vez (<code>/r 4wod6 + 3wod8</code>).</p>
-          <p>
-            <a href="/tos.html" target="_blank" rel="noreferrer">Condiciones</a>
-            {' · '}
-            <a href="/privacy.html" target="_blank" rel="noreferrer">Privacidad</a>
-            {' · '}
-            <a href="https://github.com/metalpoch/diswod/issues/new" target="_blank" rel="noreferrer">Soporte / denunciar</a>
-          </p>
-        </div>
+        <>
+          <div className="help-backdrop" onClick={() => setOpen(false)} />
+          <div className="help-pop">
+            <div className="help-pop-head">
+              <h3>Comandos</h3>
+              <button type="button" className="help-close" onClick={() => setOpen(false)} aria-label="Cerrar">✕</button>
+            </div>
+            <ul>
+              {EXAMPLES.map(([cmd, text]) => (
+                <li key={cmd}>
+                  <code>{cmd}</code>
+                  <span>{text}</span>
+                </li>
+              ))}
+            </ul>
+            <p>WOD (<code>NwodD</code>): los 10 explotan, los 1 anulan éxitos. Dificultad 2–10.</p>
+            <p>Genérico (<code>NdS</code>): suma los dados, con modificador opcional (<code>/r 1d10+0</code>).</p>
+            <p>Suma (<code>+</code>): lanza varias reservas a la vez (<code>/r 4wod6 + 3wod8</code>).</p>
+            <p>
+              <a href="/tos.html" target="_blank" rel="noreferrer">Condiciones</a>
+              {' · '}
+              <a href="/privacy.html" target="_blank" rel="noreferrer">Privacidad</a>
+              {' · '}
+              <a href="https://github.com/metalpoch/diswod/issues/new" target="_blank" rel="noreferrer">Soporte / denunciar</a>
+            </p>
+          </div>
+        </>
       )}
     </div>
   )

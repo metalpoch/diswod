@@ -34,6 +34,9 @@ export default function ChroniclePanel({
   avatar,
   onAvatar,
   isOwn,
+  backgroundUrl,
+  onSetBackground,
+  onClearBackground,
 }) {
   const photos = Object.fromEntries(
     (members || []).map((m) => [m.player_id, m.photo || m.avatar]),
@@ -118,6 +121,9 @@ export default function ChroniclePanel({
           onSetMuted={onSetMuted}
           onKick={onKick}
           onLeave={onLeave}
+          backgroundUrl={backgroundUrl}
+          onSetBackground={onSetBackground}
+          onClearBackground={onClearBackground}
         />
       ) : null}
     </aside>

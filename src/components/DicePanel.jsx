@@ -61,7 +61,7 @@ export default function DicePanel({ onRoll, disabled, reason, lastCommands }) {
           aria-label="Comando de dados"
         />
         <p className={disabled && reason ? 'hint bad' : parsed.ok ? 'hint ok' : value.trim() ? 'hint bad' : 'hint'}>
-          {disabled && reason ? reason : value.trim() ? preview : 'WOD: /r 4wod6  ·  Genérico: /r 3d10  ·  Suma: /r 4wod6 + 3wod8'}
+          {disabled && reason ? reason : value.trim() ? preview : 'Toca ? para ver los ejemplos de dados'}
         </p>
       </div>
       <button type="submit" className={rolling ? 'lanzar is-rolling' : 'lanzar'} disabled={!canRoll}>

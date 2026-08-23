@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { seatedCount } from '../lib/invite'
 import Avatar from './Avatar'
 import Lightbox from './Lightbox'
@@ -15,9 +15,13 @@ export default function MembersPanel({
   onSetMuted,
   onKick,
   onLeave,
+  backgroundUrl,
+  onSetBackground,
+  onClearBackground,
 }) {
   const seated = seatedCount(members)
   const [viewing, setViewing] = useState(null)
+  const bgFileRef = useRef(null)
 
   return (
     <section className="tool-pane members-pane">
@@ -35,6 +39,34 @@ export default function MembersPanel({
           Código {mesa.inviteCode}
           <span>copiar</span>
         </button>
+      ) : null}
+
+      {isDm ? (
+        <div className="bg-controls">
+          <h3>Fondo de mesa</h3>
+          <p className="bg-copy">Sube una imagen de ubicación para ambientar la mesa 3D.</p>
+          <div className="bg-actions">
+            <button type="button" className="ghost" onClick={() => bgFileRef.current?.click()}>
+              {backgroundUrl ? 'Cambiar fondo' : 'Subir fondo'}
+            </button>
+            {backgroundUrl ? (
+              <button type="button" className="ghost danger" onClick={onClearBackground}>
+                Quitar fondo
+              </button>
+            ) : null}
+          </div>
+          <input
+            ref={bgFileRef}
+            type="file"
+            accept="image/*"
+            className="file-hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              onSetBackground?.(file)
+            }}
+          />
+        </div>
       ) : null}
 
       <ul className="member-list">
