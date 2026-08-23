@@ -1,5 +1,17 @@
 {
-  "_nota": "Coloca tus pistas (.mp3/.ogg) en public/audio/ y listalas en 'tracks'. 'volume' es el volumen global (0..1), muy bajo por defecto.",
-  "volume": 0.12,
-  "tracks": ["Blue Velvet Files.mp3", "Muted Trumpet.mp3", "Rain On Velvet.mp3", "Rain in the Catacombs.mp3", "Sombra en el vidrio-2.mp3", "Sombra en el vidrio.mp3"]
+  "_nota": "Coloca tus pistas (.mp3/.ogg) en public/audio/ y listalas en 'tracks'. 'volume' es el volumen global (0..1).",
+  "volume": 0.2,
+  "tracks": [
+    "alex-morgan-ambient-horror-creepy-atmosphere-dark-587402.mp3",
+    "ribhavagrawal-ghostly-groove-dark-ambience-230665.mp3",
+    "suno-Bleak Ritual.mp3",
+    "atlasaudio-sting-578929.mp3",
+    "suno-Bleak Ritual v2.mp3",
+    "welbornworks-thevoid-326712.mp3",
+    "suno-Masquerade Rust V2.mp3",
+    "ribhavagrawal-terror-heights-dark-ambience-230667.mp3",
+    "suno-Masquerade Rust.mp3",
+    "willianbalfe-game-menu-music-box-horro-soundtrack-248291.mp3",
+    "suno-Pasillo Hundido.mp3"
+  ]
 }
