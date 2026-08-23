@@ -151,7 +151,7 @@ function Scene({ seats, rolls, localSeat, showLabels, backgroundUrl }) {
   )
 }
 
-export default function Table3D({ seats, entries, localId, localSeat, showLabels, backgroundUrl }) {
+export default function Table3D({ seats, entries, localId, localSeat, showLabels, backgroundUrl, onClose }) {
   const controlsRef = useRef(null)
   const rolls = useMemo(() => {
     const latest = new Map()
@@ -192,11 +192,14 @@ export default function Table3D({ seats, entries, localId, localSeat, showLabels
           makeDefault
         />
       </Canvas>
+      {onClose ? (
+        <button type="button" className="table-back" onClick={onClose} title="Volver al gamelog">← Volver</button>
+      ) : null}
       {localSeat == null && localId ? <p className="table-note">Mesa llena · ves la crónica como espectador</p> : null}
       <button type="button" className="table-reset" onClick={() => controlsRef.current?.reset()} title="Restablecer la vista de la mesa">
         Restablecer
       </button>
-      <p className="table-hint">Arrastra para mover · rueda para hacer zoom</p>
+      <p className="table-hint">Arrastra para mover · rueda o pellizco para zoom</p>
     </div>
   )
 }

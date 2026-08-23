@@ -389,15 +389,13 @@ export default function App() {
             </button>
           ) : null}
           <NameEdit name={charName} avatar={activity.identity?.avatar} onRename={renameSelf} onAvatar={changeAvatar} />
-          {!isMobile ? (
-            <button
-              type="button"
-              className={showTable ? 'ghost is-on' : 'ghost'}
-              onClick={() => setShowTable((v) => !v)}
-            >
-              Mesa 3D
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className={showTable ? 'ghost is-on' : 'ghost'}
+            onClick={() => setShowTable((v) => !v)}
+          >
+            Mesa 3D
+          </button>
           {persist.enabled && party.isDm ? (
             <>
               <button
@@ -432,7 +430,7 @@ export default function App() {
 
       <main
         ref={mainRef}
-        className={`${showTable ? '' : 'table-closed'}${dragging ? ' is-dragging' : ''}`}
+        className={`${showTable ? '' : 'table-closed'}${dragging ? ' is-dragging' : ''}${isMobile && showTable ? ' mobile-table' : ''}`}
         style={isMobile
           ? { gridTemplateColumns: '1fr' }
           : showTable
@@ -507,6 +505,7 @@ export default function App() {
             localSeat={mySeat}
             showLabels={showDieLabels}
             backgroundUrl={backgroundUrl}
+            onClose={isMobile ? () => setShowTable(false) : null}
           />
         </Suspense>
       </main>
