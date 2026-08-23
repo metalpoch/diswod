@@ -1,5 +1,5 @@
 {
   "_nota": "Coloca tus pistas (.mp3/.ogg) en public/audio/ y listalas en 'tracks'. 'volume' es el volumen global (0..1), muy bajo por defecto.",
-  "volume": 0.15,
+  "volume": 0.12,
   "tracks": ["Blue Velvet Files.mp3", "Muted Trumpet.mp3", "Rain On Velvet.mp3", "Rain in the Catacombs.mp3", "Sombra en el vidrio-2.mp3", "Sombra en el vidrio.mp3"]
 }

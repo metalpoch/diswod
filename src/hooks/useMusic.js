@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 const STORAGE_KEY = 'diswod.music.muted'
-const DEFAULT_VOLUME = 0.15
+const DEFAULT_VOLUME = 0.12
 
 export function useMusic() {
   const [ready, setReady] = useState(false)
