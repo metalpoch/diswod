@@ -15,8 +15,9 @@ function Backdrop({ url }) {
       return undefined
     }
     let active = true
+    const bustUrl = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`
     const loader = new THREE.TextureLoader()
-    loader.load(url, (texture) => {
+    loader.load(bustUrl, (texture) => {
       if (!active) return
       texture.colorSpace = THREE.SRGBColorSpace
       texture.wrapS = THREE.ClampToEdgeWrapping

@@ -41,7 +41,7 @@ export async function uploadBackground(mesaId, file) {
   if (!file) throw new Error('Sin archivo')
   if (!/^image\//.test(file.type)) throw new Error('El archivo debe ser una imagen')
   if (file.size > BG_MAX) throw new Error('La imagen debe pesar menos de 5 MB')
-  return upload(`${mesaId}/background.${extOf(file.name, 'jpg')}`, file)
+  return upload(`${mesaId}/bg-${Date.now()}.${extOf(file.name, 'jpg')}`, file)
 }
 
 export async function uploadPhoto(mesaId, playerId, file) {
