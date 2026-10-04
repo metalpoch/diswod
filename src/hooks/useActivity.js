@@ -21,6 +21,12 @@ import {
   startParticipantSync,
 } from '../lib/activityIdentity'
 import { resolvePlayerIdentityLinks } from '../lib/playerIdentityLinks'
+import {
+  persistRoomSafely,
+  sdkUnavailableCategory,
+  startupFailureCategory,
+  startupSafeMessage,
+} from '../lib/activityStartup'
 
 export function useActivity() {
   const [activityContext] = useState(() => isLikelyEmbedded())
@@ -35,6 +41,7 @@ export function useActivity() {
   const [fallbackReady, setFallbackReady] = useState(false)
   const [presenceStatus, setPresenceStatus] = useState('idle')
   const [error, setError] = useState('')
+  const [diagnostic, setDiagnostic] = useState('')
   const [roomId, setRoomId] = useState(() => roomFromLocation())
   const [instanceId, setInstanceId] = useState('')
   const [retryCount, setRetryCount] = useState(0)
@@ -44,6 +51,7 @@ export function useActivity() {
   useEffect(() => {
     let cancelled = false
     let participantSync = null
+    const startupController = new AbortController()
 
     setStatus('boot')
     setSdk(null)
@@ -52,6 +60,7 @@ export function useActivity() {
     setFallbackReady(false)
     setPresenceStatus(activityContext ? 'pending' : 'idle')
     setError('')
+    setDiagnostic('')
     setOauthAccessToken('')
     setIdentityLinksReady(!activityContext)
     fallbackSelected.current = false
@@ -67,27 +76,32 @@ export function useActivity() {
       setIdentityState(retained)
     }
 
-    const failActivityStartup = (message) => {
+    const failActivityStartup = (category) => {
       const policy = activityStartupPolicy({ sdkAvailable: false })
       setIdentityState(policy.identity)
       clearIdentity()
       setFallbackReady(policy.fallbackReady)
-      setError(message)
+      setDiagnostic(category)
+      setError(startupSafeMessage(category))
       setStatus(policy.status)
     }
 
     async function boot() {
       try {
-        const { sdk: next, user, accessToken } = await connectDiscord()
-        if (cancelled) return
+        const { sdk: next, user, accessToken, failureCategory, authFailureCategory } = await connectDiscord(
+          undefined,
+          { signal: startupController.signal },
+        )
+        if (cancelled || startupController.signal.aborted) return
         if (!next) {
           if (activityContext) {
-            failActivityStartup('No se pudo iniciar Discord Activity. Reintenta o vuelve a abrir la Activity.')
+            failActivityStartup(sdkUnavailableCategory({ sdk: next, failureCategory }))
             return
           }
           if (!roomFromLocation()) {
             const generated = randomRoom()
-            persistRoom(generated)
+            const result = persistRoomSafely(persistRoom, generated)
+            if (!result.persisted) setDiagnostic(result.warning)
             setRoomId(generated)
           }
           restoreStandaloneIdentity()
@@ -97,9 +111,6 @@ export function useActivity() {
         }
         setSdk(next)
         setInstanceId(next.instanceId || '')
-        const room = next.instanceId || roomFromLocation() || randomRoom()
-        persistRoom(room)
-        setRoomId(room)
         const startup = activityStartupPolicy({
           sdkAvailable: true,
           user,
@@ -107,6 +118,7 @@ export function useActivity() {
         })
         // Fix and persist verified OAuth identity before starting participant discovery.
         const verified = establishAuthenticatedIdentity(user, setIdentityState, saveIdentity)
+        if (authFailureCategory) setDiagnostic(authFailureCategory)
         if (verified && accessToken) {
           setOauthAccessToken(accessToken)
           Promise.race([
@@ -122,6 +134,10 @@ export function useActivity() {
           setIdentityLinksReady(true)
         }
         if (!verified) clearIdentity()
+        const room = next.instanceId || roomFromLocation() || randomRoom()
+        const roomPersistence = persistRoomSafely(persistRoom, room)
+        if (!roomPersistence.persisted && !authFailureCategory) setDiagnostic(roomPersistence.warning)
+        setRoomId(room)
         setStatus(startup.status)
         setFallbackReady(startup.fallbackReady)
         try {
@@ -171,15 +187,16 @@ export function useActivity() {
             setStatus('activity-error')
           }
         }
-      } catch {
+      } catch (startupError) {
         if (cancelled) return
         if (activityContext) {
-          failActivityStartup('No se pudo iniciar Discord Activity. Reintenta o vuelve a abrir la Activity.')
+          failActivityStartup(startupFailureCategory(startupError))
           return
         }
         if (!roomFromLocation()) {
           const generated = randomRoom()
-          persistRoom(generated)
+          const result = persistRoomSafely(persistRoom, generated)
+          if (!result.persisted) setDiagnostic(result.warning)
           setRoomId(generated)
         }
         restoreStandaloneIdentity()
@@ -191,11 +208,13 @@ export function useActivity() {
     boot()
     return () => {
       cancelled = true
+      startupController.abort()
       participantSync?.cancel()
     }
   }, [activityContext, retryCount])
 
   const setIdentity = (next) => {
+    if (activityContext && String(next?.id || '').startsWith('local-')) return
     if (next?.source === 'participant' || next?.source === 'discord') {
       fallbackSelected.current = true
       fallbackSelectedId.current = next.id || ''
@@ -260,6 +279,8 @@ export function useActivity() {
     fallbackReady,
     presenceStatus,
     error,
+    diagnostic,
+    diagnosticMessage: diagnostic ? startupSafeMessage(diagnostic) : '',
     retry,
     roomId,
     instanceId,

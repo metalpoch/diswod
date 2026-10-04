@@ -1,5 +1,5 @@
 export function authenticatedIdentity(user) {
-  if (!user?.id) return null
+  if (!user?.id || String(user.id).startsWith('local-')) return null
   const { accessToken: _accessToken, ...profile } = user
   return { ...profile, id: user.id, discordId: user.id, source: 'discord-auth' }
 }
@@ -30,7 +30,7 @@ export function activityStartupPolicy({ sdkAvailable, user, roster = [], rosterS
 }
 
 export function participantFallbackIdentity(participant, roster) {
-  if (!participant?.id || !Array.isArray(roster)) return null
+  if (!participant?.id || String(participant.id).startsWith('local-') || !Array.isArray(roster)) return null
   const selected = roster.find((person) => person?.id === participant.id)
   return selected ? { ...selected, source: 'participant' } : null
 }

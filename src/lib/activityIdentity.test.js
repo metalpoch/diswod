@@ -61,6 +61,7 @@ describe('activity identity', () => {
     expect(identityPresentation(selected, 'discord').kind).toBe('selected')
     expect(empty).toMatchObject({ status: 'activity-error', identity: null, fallbackReady: false })
     expect(participantFallbackIdentity(roster[0], [])).toBeNull()
+    expect(participantFallbackIdentity({ id: 'local-forged' }, [{ id: 'local-forged' }])).toBeNull()
   })
 
   it('revokes a participant fallback only after an event update removes that participant', () => {
@@ -91,6 +92,7 @@ describe('activity identity', () => {
 
     expect(identityForBoot(local, { activity: false })).toBe(local)
     expect(identityForBoot(local, { activity: true })).toBeNull()
+    expect(authenticatedIdentity({ id: 'local-forged', name: 'Local' })).toBeNull()
     expect(identityForBoot(local, { activity: true, user: oauthUser })).toMatchObject({
       id: 'verified-account',
       source: 'discord-auth',

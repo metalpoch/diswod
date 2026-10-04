@@ -416,6 +416,9 @@ export default function App() {
           <p className="eyebrow">Discord Activity</p>
           <h1>No se pudo conectar</h1>
           <p className="gate-copy">{activity.error || 'Vuelve a abrir la Activity e inténtalo de nuevo.'}</p>
+          {activity.diagnosticMessage && activity.diagnosticMessage !== activity.error && (
+            <p className="gate-copy" role="status">{activity.diagnosticMessage}</p>
+          )}
           <button type="button" className="primary" onClick={activity.retry}>Reintentar</button>
         </div>
       </div>
@@ -432,6 +435,7 @@ export default function App() {
         participants={activity.participants}
         identity={activity.identity}
         embedded={activity.embedded}
+        diagnosticMessage={activity.diagnosticMessage}
         onSubmit={activity.setIdentity}
       />
     )

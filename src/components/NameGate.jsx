@@ -5,7 +5,7 @@ import Avatar from './Avatar'
 import IdentityStatus from './IdentityStatus'
 import LegalLinks from './LegalLinks'
 
-export default function NameGate({ participants, identity, onSubmit, embedded }) {
+export default function NameGate({ participants, identity, onSubmit, embedded, diagnosticMessage = '' }) {
   const [selected, setSelected] = useState(identity?.id || '')
 
   const pickParticipant = (player) => {
@@ -43,6 +43,7 @@ export default function NameGate({ participants, identity, onSubmit, embedded })
             : 'Entra en la crónica. El Narrador te pasará un código de mesa.'}
         </p>
         <IdentityStatus identity={identity} mode={embedded ? 'discord' : 'standalone'} />
+        {diagnosticMessage && <p className="gate-copy" role="status">{diagnosticMessage}</p>}
 
         {participants.length > 0 && (
           <div className="gate-people">

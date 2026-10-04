@@ -1,4 +1,9 @@
 import { supabase } from './supabase'
+import {
+  categorizedStartupError,
+  loadSdkModule,
+  startupFailureCategory,
+} from './activityStartup'
 
 const AVATAR = (id, avatar) =>
   avatar
@@ -122,22 +127,36 @@ export async function subscribeParticipants(sdk, onChange) {
 }
 
 async function exchangeDiscordCode(code) {
-  if (!supabase) throw new Error('no supabase')
-  const { data, error } = await supabase.functions.invoke('discord-token', { body: { code } })
-  if (error || !data?.access_token) throw error || new Error('token')
-  return data.access_token
+  try {
+    if (!supabase) throw new Error()
+    const { data, error } = await supabase.functions.invoke('discord-token', { body: { code } })
+    if (error || !data?.access_token) throw new Error()
+    return data.access_token
+  } catch {
+    throw categorizedStartupError('discord_token')
+  }
 }
 
 export async function authenticateDiscordUser(sdk, clientId) {
-  const { code } = await sdk.commands.authorize({
-    client_id: clientId,
-    response_type: 'code',
-    prompt: 'none',
-    scope: ['identify', 'guilds', 'rpc.activities.write'],
-  })
+  let code
+  try {
+    ({ code } = await sdk.commands.authorize({
+      client_id: clientId,
+      response_type: 'code',
+      prompt: 'none',
+      scope: ['identify', 'guilds', 'rpc.activities.write'],
+    }))
+  } catch {
+    throw categorizedStartupError('oauth_authorize')
+  }
   const accessToken = await exchangeDiscordCode(code)
-  const auth = await sdk.commands.authenticate({ access_token: accessToken })
-  const user = auth.user
+  let user
+  try {
+    const auth = await sdk.commands.authenticate({ access_token: accessToken })
+    user = auth.user
+  } catch {
+    throw categorizedStartupError('oauth_authenticate')
+  }
   return {
     id: user.id,
     discordId: user.id,
@@ -149,9 +168,12 @@ export async function authenticateDiscordUser(sdk, clientId) {
   }
 }
 
-export async function connectDiscord(clientId = CLIENT_ID) {
-  if (!clientId || !isLikelyEmbedded()) return { sdk: null, user: null }
-  const mod = await import('@discord/embedded-app-sdk')
+export async function connectDiscord(clientId = CLIENT_ID, { signal } = {}) {
+  if (!isLikelyEmbedded()) return { sdk: null, user: null }
+  if (!clientId) return { sdk: null, user: null, failureCategory: 'client_id_missing' }
+  const imported = await loadSdkModule(() => import('@discord/embedded-app-sdk'), { signal })
+  if (imported.cancelled || signal?.aborted) return { sdk: null, user: null, cancelled: true }
+  const mod = imported.module
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
   if (supabaseUrl) {
     try {
@@ -161,22 +183,38 @@ export async function connectDiscord(clientId = CLIENT_ID) {
       /* ignore */
     }
   }
-  const sdk = new mod.DiscordSDK(clientId)
-  await Promise.race([
-    sdk.ready(),
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Discord SDK timeout')), 8000)
-    }),
-  ])
+  let sdk
+  try {
+    sdk = new mod.DiscordSDK(clientId)
+  } catch {
+    throw categorizedStartupError('sdk_initialize')
+  }
+  let readyTimer
+  try {
+    await Promise.race([
+      Promise.resolve().then(() => sdk.ready()).catch(() => {
+        throw categorizedStartupError('sdk_ready_rejected')
+      }),
+      new Promise((_, reject) => {
+        readyTimer = setTimeout(() => reject(categorizedStartupError('sdk_ready_timeout')), 8000)
+      }),
+    ])
+  } finally {
+    clearTimeout(readyTimer)
+  }
+  if (signal?.aborted) return { sdk: null, user: null, cancelled: true }
   let user = null
   let accessToken = ''
+  let authFailureCategory = ''
   try {
     const authenticated = await authenticateDiscordUser(sdk, clientId)
     const { accessToken: token, ...profile } = authenticated
     user = profile
     accessToken = token
-  } catch {
+  } catch (error) {
+    authFailureCategory = startupFailureCategory(error)
+    if (authFailureCategory === 'activity_startup') authFailureCategory = 'oauth_authenticate'
     user = null
   }
-  return { sdk, user, accessToken }
+  return { sdk, user, accessToken, authFailureCategory }
 }
