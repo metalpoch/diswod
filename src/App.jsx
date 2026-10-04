@@ -4,9 +4,11 @@ import ChroniclePanel from './components/ChroniclePanel'
 import DicePanel from './components/DicePanel'
 import DiscordOnly from './components/DiscordOnly'
 import Help from './components/Help'
+import IdentityStatus from './components/IdentityStatus'
 import MesaLobby from './components/MesaLobby'
 import NameEdit from './components/NameEdit'
 import NameGate from './components/NameGate'
+import PlayerIdentityClaim from './components/PlayerIdentityClaim'
 import { useActivity } from './hooks/useActivity'
 import { useGameLog } from './hooks/useGameLog'
 import { useMembers } from './hooks/useMembers'
@@ -25,6 +27,9 @@ import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
 import { copyText } from './lib/clipboard'
 import { canEditSheetTarget, canViewSheetTarget, isRosterReadyForMesa } from './lib/sheetAccess'
 import { deleteNpcAfterSaving } from './lib/sheetQueue'
+import { identityForMesaAccess } from './lib/activityIdentity'
+import { canUsePersistentIdentity } from './lib/playerIdentityLinks'
+import { createQuickRollOrigin, quickRollOriginMatches, reconcileQuickRollOrigin } from './lib/quickRolls'
 
 function useIsMobile(bp = 800) {
   const [m, setM] = useState(() => {
@@ -45,7 +50,15 @@ const Table3D = lazy(() => import('./components/Table3D'))
 export default function App() {
   const activity = useActivity()
   const persistOn = hasSupabase()
-  const archive = useMesas(persistOn, activity.identity)
+  const persistentIdentityAllowed = canUsePersistentIdentity(activity.identity, activity.embedded)
+  const archive = useMesas(
+    persistOn && activity.identityLinksReady && persistentIdentityAllowed,
+    identityForMesaAccess(activity.identity, activity.status),
+    activity.oauthAccessToken,
+    activity.replaceIdentityLinks,
+  )
+  const effectiveId = archive.effectivePlayerId || activity.identity?.id || ''
+  const mesaIdentity = activity.identity ? { ...activity.identity, id: effectiveId } : null
   const [skipSave, setSkipSave] = useState(false)
   const [toast, setToast] = useState('')
   const [showDieLabels, setShowDieLabels] = useState(false)
@@ -60,13 +73,17 @@ export default function App() {
   const [dragging, setDragging] = useState(false)
   const mainRef = useRef(null)
   const [diceText, setDiceText] = useState('')
+  const quickRollOriginRef = useRef(null)
 
   const persist = persistOn && archive.current && !skipSave
     ? { enabled: true, mesaId: archive.current.id, sessionId: archive.current.currentSessionId }
     : { enabled: false }
   const roomId = persist.enabled ? `mesa-${persist.mesaId}` : activity.roomId
-  const log = useGameLog(roomId, activity.identity, persist)
-  const party = useMembers(persist.enabled ? persist.mesaId : '', activity.identity)
+  const log = useGameLog(roomId, mesaIdentity, persist, {
+    status: activity.status,
+    embedded: activity.embedded,
+  })
+  const party = useMembers(persist.enabled ? persist.mesaId : '', mesaIdentity)
   const npcs = useNpcs(persist.enabled ? persist.mesaId : '')
   const backgroundUrl = useMesaBackground(persist.enabled ? persist.mesaId : '')
   const currentMesaId = persist.enabled ? persist.mesaId : ''
@@ -85,7 +102,7 @@ export default function App() {
   }, sheetTarget))
     ? sheetTarget
     : null
-  const viewingPlayerId = activeSheetTarget || activity.identity?.id || ''
+  const viewingPlayerId = activeSheetTarget || effectiveId
   const authorizeSheetEdit = (targetMesaId, targetPlayerId) => {
     const npcIsCurrent = npcs.contains(targetPlayerId)
     const authorizedNpcIds = npcIds.includes(targetPlayerId) || npcIsCurrent
@@ -94,7 +111,7 @@ export default function App() {
     return canEditSheetTarget({
       mesaId: currentMesaId,
       targetMesaId,
-      identityId: activity.identity?.id,
+      identityId: effectiveId,
       isDm: rosterCurrent && party.isDm,
       memberIds,
       npcIds: authorizedNpcIds,
@@ -108,6 +125,20 @@ export default function App() {
     authorizeSheetEdit,
   )
   const sheetReadOnly = Boolean(persist.enabled && (!sheetCanEdit || deletingNpcId === viewingPlayerId))
+  const quickRollTarget = {
+    mesaId: currentMesaId,
+    playerId: viewingPlayerId,
+    ready: sheet.ready && !sheet.error,
+  }
+  const staleQuickRoll = quickRollOriginRef.current
+    && !quickRollOriginMatches(quickRollOriginRef.current, quickRollTarget, diceText)
+
+  useEffect(() => {
+    const reconciled = reconcileQuickRollOrigin(quickRollOriginRef.current, quickRollTarget, diceText)
+    if (!reconciled.invalidated) return
+    quickRollOriginRef.current = reconciled.origin
+    if (reconciled.text !== diceText) setDiceText(reconciled.text)
+  }, [currentMesaId, viewingPlayerId, sheet.ready, sheet.error, diceText])
 
   const selectSheetTarget = (playerId) => {
     if (!playerId) {
@@ -116,7 +147,7 @@ export default function App() {
       return
     }
     if (!persist.enabled || !rosterCurrent || !party.isDm || deletingNpcIds.current.has(playerId)) return
-    const isOtherMember = memberIds.includes(playerId) && playerId !== activity.identity?.id
+    const isOtherMember = memberIds.includes(playerId) && playerId !== effectiveId
     const isCurrentNpc = npcs.contains(playerId)
     if (!isOtherMember && !isCurrentNpc) return
     setSheetTarget(playerId)
@@ -141,7 +172,7 @@ export default function App() {
     () => (persist.enabled
       ? seatedFromMembers(party.members.map((m) => ({
         ...m,
-        self: m.player_id === activity.identity?.id,
+        self: m.player_id === effectiveId,
       })))
       : seatedPlayers(players)),
     [persist.enabled, party.members, players, activity.identity],
@@ -185,10 +216,10 @@ export default function App() {
 
   const lastCommands = useMemo(() => {
     const mine = log.entries
-      .filter((e) => e.player?.id === activity.identity?.id)
+      .filter((e) => e.player?.id === effectiveId)
       .map((e) => e.command)
     return [...new Set(mine.reverse())].slice(0, 20)
-  }, [log.entries, activity.identity])
+  }, [log.entries, effectiveId])
 
   const flash = (text) => {
     setToast(text)
@@ -202,7 +233,7 @@ export default function App() {
     : ''
   const participants = activity.participants || []
   const dmOnline = !persist.enabled || !dmId
-    || activity.identity?.id === dmId
+    || effectiveId === dmId
     || log.remotes.some((r) => r.id === dmId)
     || participants.some((p) => p.id === dmId)
   const muted = Boolean(persist.enabled && party.me?.muted)
@@ -210,7 +241,7 @@ export default function App() {
   // Solo se bloquea la mesa si hay evidencia positiva de ausencia del Narrador
   // (participantes del SDK no vacíos y el Narrador no está entre ellos).
   const waitingForDm = persist.enabled && Boolean(dmId)
-    && activity.identity?.id !== dmId
+    && effectiveId !== dmId
     && participants.length > 0
     && !dmOnline
 
@@ -219,23 +250,43 @@ export default function App() {
     log.addEntry({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       ts: Date.now(),
-      player: charName ? { ...activity.identity, name: charName } : activity.identity,
+      player: charName ? { ...mesaIdentity, name: charName } : mesaIdentity,
       command: parsed.command,
       result,
       line: formatResultLine(result),
     })
   }
 
+  const setSheetGeneratedRoll = (command) => {
+    if (!quickRollTarget.ready) return
+    quickRollOriginRef.current = createQuickRollOrigin({
+      mesaId: quickRollTarget.mesaId,
+      playerId: quickRollTarget.playerId,
+      text: command,
+    })
+    setDiceText(command)
+  }
+
+  const onDiceTextChange = (text) => {
+    quickRollOriginRef.current = null
+    setDiceText(text)
+  }
+
   const composeSheetRoll = (payload) => {
     if (!payload) {
+      quickRollOriginRef.current = null
       setDiceText('')
+      return
+    }
+    if (payload.command) {
+      setSheetGeneratedRoll(payload.command)
       return
     }
     const match = diceText.match(/(?:^|\s)(\d+)wod(\d+)(!?)/)
     const difficulty = match ? Number(match[2]) : 6
     const specialty = payload.specialty ?? (match ? Boolean(match[3]) : false)
     const description = payload.description ? ` ${payload.description}` : ''
-    setDiceText(`/r ${payload.count}wod${difficulty}${specialty ? '!' : ''}${description}`)
+    setSheetGeneratedRoll(`/r ${payload.count}wod${difficulty}${specialty ? '!' : ''}${description}`)
   }
 
   const createNpc = async () => {
@@ -287,8 +338,8 @@ export default function App() {
   const renameSelf = async (name) => {
     if (persist.enabled) {
       try {
-        await renameMember(persist.mesaId, activity.identity.id, name)
-        log.renamePlayer(activity.identity.id, name)
+        await renameMember(persist.mesaId, effectiveId, name)
+        log.renamePlayer(effectiveId, name)
         flash('Nombre actualizado')
       } catch (err) {
         flash(err.message || 'No se pudo actualizar el nombre en la mesa')
@@ -303,16 +354,16 @@ export default function App() {
   const changeAvatar = async (file, fullFile) => {
     const invalid = validAvatarFile(file)
     if (invalid) throw new Error(invalid)
-    const url = proxiedUrl(await uploadAvatar(persist.mesaId, activity.identity.id, file))
+    const url = proxiedUrl(await uploadAvatar(persist.mesaId, effectiveId, file))
     let photoUrl
     if (fullFile) {
-      photoUrl = proxiedUrl(await uploadPhoto(persist.mesaId, activity.identity.id, fullFile))
+      photoUrl = proxiedUrl(await uploadPhoto(persist.mesaId, effectiveId, fullFile))
     }
     activity.setIdentity({ ...activity.identity, avatar: url })
-    log.setPlayerAvatar(activity.identity.id, url)
+    log.setPlayerAvatar(effectiveId, url)
     if (persist.enabled) {
       try {
-        await setMemberAvatar(persist.mesaId, activity.identity.id, url, photoUrl)
+        await setMemberAvatar(persist.mesaId, effectiveId, url, photoUrl)
       } catch (err) {
         flash(err.message || 'La foto se subió pero no se guardó en la mesa')
       }
@@ -344,6 +395,31 @@ export default function App() {
     return <DiscordOnly />
   }
 
+  if (activity.status === 'boot') {
+    return <div className="gate"><p className="gate-copy">Conectando con Discord…</p></div>
+  }
+
+  if (activity.identity?.source === 'discord-auth' && !activity.identityLinksReady) {
+    return <div className="gate"><p className="gate-copy">Comprobando tus vínculos de mesa…</p></div>
+  }
+
+  if (activity.embedded && activity.status === 'activity-error') {
+    return (
+      <div className="gate">
+        <div className="gate-card">
+          <p className="eyebrow">Discord Activity</p>
+          <h1>No se pudo conectar</h1>
+          <p className="gate-copy">{activity.error || 'Vuelve a abrir la Activity e inténtalo de nuevo.'}</p>
+          <button type="button" className="primary" onClick={activity.retry}>Reintentar</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (activity.embedded && !activity.identity && !activity.fallbackReady) {
+    return <div className="gate"><p className="gate-copy">Obteniendo participantes de Discord…</p></div>
+  }
+
   if (!activity.identity) {
     return (
       <NameGate
@@ -357,34 +433,45 @@ export default function App() {
 
   if (persistOn && !archive.current && !skipSave) {
     return (
-      <MesaLobby
-        identity={activity.identity}
-        mesas={archive.mesas}
-        loading={archive.loading}
-        error={archive.error}
-        onOpen={archive.open}
-        onCreate={archive.create}
-        onJoin={archive.join}
-        onArchive={archive.archive}
-        onReopen={archive.reopen}
-        onSkip={() => setSkipSave(true)}
-        onErase={async () => {
-          if (!window.confirm('¿Borrar tus notas, pizarra y mesas? Las tiradas quedarán anónimas.')) return
-          try {
-            await deleteMyData(activity.identity.id)
-            localStorage.removeItem('diswod.identity')
-            flash('Datos borrados')
-            window.setTimeout(() => window.location.reload(), 600)
-          } catch (err) {
-            flash(err.message || 'No se pudieron borrar los datos')
-          }
-        }}
-      />
+      <>
+        <MesaLobby
+          identity={activity.identity}
+          identityMode={activity.status}
+          presenceStatus={activity.presenceStatus}
+          persistentIdentityBlocked={!persistentIdentityAllowed}
+          mesas={archive.mesas}
+          loading={archive.loading}
+          error={archive.error}
+          onOpen={archive.open}
+          onCreate={archive.create}
+          onJoin={archive.join}
+          onArchive={archive.archive}
+          onReopen={archive.reopen}
+          onSkip={() => setSkipSave(true)}
+          onErase={async () => {
+            if (!window.confirm('¿Borrar tus notas, pizarra y mesas? Las tiradas quedarán anónimas.')) return
+            try {
+              await deleteMyData({ ...activity.identity, links: archive.identityLinks })
+              localStorage.removeItem('diswod.identity')
+              flash('Datos borrados')
+              window.setTimeout(() => window.location.reload(), 600)
+            } catch (err) {
+              flash(err.message || 'No se pudieron borrar los datos')
+            }
+          }}
+        />
+        <PlayerIdentityClaim
+          claim={archive.pendingClaim}
+          onClaim={archive.claimCandidate}
+          onContinueDirect={archive.continueWithDirectMember}
+          onDismiss={archive.dismissClaim}
+        />
+      </>
     )
   }
 
   const taken = seats.filter(Boolean).length
-  const localSeat = seats.findIndex((p) => p?.id === activity.identity.id)
+  const localSeat = seats.findIndex((p) => p?.id === effectiveId)
   const mySeat = localSeat >= 0 ? localSeat : null
 
   if (waitingForDm) {
@@ -393,6 +480,11 @@ export default function App() {
         <div className="veil" />
         <div className="waiting-card">
           <h2>Esperando al Narrador</h2>
+          <IdentityStatus
+            identity={activity.identity}
+            mode={activity.status}
+            presenceStatus={activity.presenceStatus}
+          />
           <p>La mesa solo está disponible cuando el Narrador está presente.</p>
           <button type="button" className="ghost" onClick={leaveTable}>Salir de la mesa</button>
         </div>
@@ -413,6 +505,11 @@ export default function App() {
         </div>
         <div className="top-actions">
           <span className="occupancy">{taken}/4 en mesa</span>
+          <IdentityStatus
+            identity={activity.identity}
+            mode={activity.status}
+            presenceStatus={activity.presenceStatus}
+          />
           {persist.enabled && !party.isPlayer ? <span className="occupancy">Visitante</span> : null}
           {persistOn ? (
             <button
@@ -496,7 +593,7 @@ export default function App() {
           entries={log.entries}
           onCopy={(ok) => flash(ok ? 'Historial copiado' : 'No se pudo copiar')}
           persist={persist.enabled ? persist : null}
-          playerId={activity.identity.id}
+          playerId={effectiveId}
           mesa={archive.current}
           members={party.members}
           me={party.me}
@@ -545,7 +642,7 @@ export default function App() {
           onDeleteNpc={deleteNpc}
           avatar={activity.identity?.avatar}
           onAvatar={changeAvatar}
-          isOwn={viewingPlayerId === activity.identity?.id}
+          isOwn={viewingPlayerId === effectiveId}
           backgroundUrl={backgroundUrl}
           onSetBackground={setBackground}
           onClearBackground={clearBackground}
@@ -564,7 +661,7 @@ export default function App() {
           <Table3D
             seats={seats}
             entries={log.entries}
-            localId={activity.identity.id}
+            localId={effectiveId}
             localSeat={mySeat}
             showLabels={showDieLabels}
             backgroundUrl={backgroundUrl}
@@ -575,21 +672,21 @@ export default function App() {
 
       <DicePanel
         onRoll={onRoll}
-        disabled={rollBlocked}
-        reason={muted
-          ? 'El Narrador te ha silenciado.'
-          : ''}
+        disabled={rollBlocked || Boolean(staleQuickRoll)}
+        reason={staleQuickRoll
+          ? 'La ficha cambió o aún no está cargada; edita el comando o prepara otra tirada.'
+          : muted ? 'El Narrador te ha silenciado.' : ''}
         lastCommands={lastCommands}
         value={diceText}
-        onChange={setDiceText}
+        onChange={onDiceTextChange}
       />
       {persist.enabled && archive.pendingCharName ? (
         <CharacterGate
           defaultName={activity.identity.name}
           onAccept={async (name) => {
             try {
-              await renameMember(persist.mesaId, activity.identity.id, name)
-              log.renamePlayer(activity.identity.id, name)
+              await renameMember(persist.mesaId, effectiveId, name)
+              log.renamePlayer(effectiveId, name)
               archive.dismissCharName()
               setTab('ficha')
               flash(`Bienvenido, ${name}`)

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { colorFromName, randomRoom } from '../lib/discord'
+import { localIdentity, participantFallbackIdentity } from '../lib/activityIdentity'
 import Avatar from './Avatar'
+import IdentityStatus from './IdentityStatus'
 import LegalLinks from './LegalLinks'
 
 export default function NameGate({ participants, identity, onSubmit, embedded }) {
@@ -13,23 +15,20 @@ export default function NameGate({ participants, identity, onSubmit, embedded })
   const confirm = (event) => {
     event.preventDefault()
     if (embedded) {
-      const fromList = participants.find((p) => p.id === selected)
+      const fromList = participantFallbackIdentity(
+        participants.find((p) => p.id === selected),
+        participants,
+      )
       if (!fromList) return
       onSubmit({
         ...fromList,
         color: colorFromName(fromList.name),
-        source: 'discord',
       })
       return
     }
     const name = identity?.name || 'Jugador'
-    onSubmit({
-      id: identity?.id || `local-${randomRoom()}`,
-      name,
-      avatar: identity?.avatar || null,
-      color: colorFromName(name),
-      source: identity?.source || 'local',
-    })
+    const local = identity?.source === 'local' ? identity : localIdentity(name, randomRoom)
+    onSubmit({ ...local, color: colorFromName(name) })
   }
 
   return (
@@ -43,6 +42,7 @@ export default function NameGate({ participants, identity, onSubmit, embedded })
             ? 'Elige tu usuario de Discord en esta Activity.'
             : 'Entra en la crónica. El Narrador te pasará un código de mesa.'}
         </p>
+        <IdentityStatus identity={identity} mode={embedded ? 'discord' : 'standalone'} />
 
         {participants.length > 0 && (
           <div className="gate-people">
@@ -61,7 +61,11 @@ export default function NameGate({ participants, identity, onSubmit, embedded })
         )}
 
         <form onSubmit={confirm}>
-          <button type="submit" className="primary" disabled={embedded ? !selected : false}>
+          <button
+            type="submit"
+            className="primary"
+            disabled={embedded ? !participants.some((player) => player.id === selected) : false}
+          >
             Entrar (contenido 18+)
           </button>
         </form>

@@ -87,6 +87,13 @@ export function createGameSync(roomId, onChange) {
     setAwareness(state) {
       provider?.awareness.setLocalStateField('player', state)
     },
+    clearAwareness() {
+      try {
+        provider?.awareness.setLocalState(null)
+      } catch {
+        /* ignore */
+      }
+    },
     destroy() {
       try {
         provider?.destroy()

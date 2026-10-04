@@ -52,7 +52,19 @@ export function loadIdentity() {
 }
 
 export function saveIdentity(identity) {
-  localStorage.setItem('diswod.identity', JSON.stringify(identity))
+  try {
+    localStorage.setItem('diswod.identity', JSON.stringify(identity))
+  } catch {
+    /* Identity remains available in React state when storage is unavailable. */
+  }
+}
+
+export function clearIdentity() {
+  try {
+    localStorage.removeItem('diswod.identity')
+  } catch {
+    /* Ignore storage being unavailable in the Activity sandbox. */
+  }
 }
 
 export function colorFromName(name) {
@@ -84,19 +96,29 @@ export async function readParticipants(sdk) {
   return (participants || []).map(mapParticipant).filter((p) => p.id)
 }
 
-export function subscribeParticipants(sdk, onChange) {
+export async function subscribeParticipants(sdk, onChange) {
   if (!sdk) return () => {}
   const handler = (event) => {
     onChange((event.participants || []).map(mapParticipant).filter((p) => p.id))
   }
-  sdk.subscribe('ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE', handler)
-  return () => {
+  const unsubscribe = () => {
     try {
-      sdk.unsubscribe('ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE', handler)
+      return Promise.resolve(sdk.unsubscribe('ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE', handler)).catch(() => {})
     } catch {
       /* ignore */
     }
   }
+  try {
+    await sdk.subscribe('ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE', handler)
+  } catch (error) {
+    try {
+      await unsubscribe()
+    } catch {
+      /* A failed registration may still have partially attached the handler. */
+    }
+    throw error
+  }
+  return unsubscribe
 }
 
 async function exchangeDiscordCode(code) {
@@ -118,10 +140,12 @@ export async function authenticateDiscordUser(sdk, clientId) {
   const user = auth.user
   return {
     id: user.id,
+    discordId: user.id,
     name: user.global_name || user.username,
     avatar: AVATAR(user.id, user.avatar),
     color: colorFromName(user.global_name || user.username),
-    source: 'discord',
+    source: 'discord-auth',
+    accessToken,
   }
 }
 
@@ -145,10 +169,14 @@ export async function connectDiscord(clientId = CLIENT_ID) {
     }),
   ])
   let user = null
+  let accessToken = ''
   try {
-    user = await authenticateDiscordUser(sdk, clientId)
+    const authenticated = await authenticateDiscordUser(sdk, clientId)
+    const { accessToken: token, ...profile } = authenticated
+    user = profile
+    accessToken = token
   } catch {
     user = null
   }
-  return { sdk, user }
+  return { sdk, user, accessToken }
 }

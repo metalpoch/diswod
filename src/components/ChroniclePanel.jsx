@@ -119,6 +119,7 @@ export default function ChroniclePanel({
               </div>
             ) : (
               <CharacterSheet
+                key={playerId}
                 sheet={sheet}
                 readOnly={sheetReadOnly}
                 status={sheetStatus}

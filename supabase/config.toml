@@ -1,0 +1,2 @@
+[functions.mesa-player-identity]
+verify_jwt = false

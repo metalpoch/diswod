@@ -25,6 +25,13 @@ import {
   VIRTUD_CONCIENCIA,
 } from '../lib/sheetOptions'
 
+import {
+  buildDisciplineCommand,
+  buildInitiativeCommand,
+  getInitiativeBreakdown,
+  getOwnedDisciplines,
+} from '../lib/quickRolls'
+
 const HEALTH_SYMBOLS = ['', '/', 'X', '*']
 
 function DieIcon() {
@@ -263,11 +270,21 @@ export default function CharacterSheet({
 }) {
   const [pool, setPool] = useState([])
   const [specialty, setSpecialty] = useState(false)
+  const [woundPenalty, setWoundPenalty] = useState(0)
+  const [unspentCelerity, setUnspentCelerity] = useState(0)
+  const [activeDiscipline, setActiveDiscipline] = useState('')
+  const [disciplinePool, setDisciplinePool] = useState(1)
+  const [disciplineDifficulty, setDisciplineDifficulty] = useState(6)
+  const [disciplinePower, setDisciplinePower] = useState('')
   const [cropSrc, setCropSrc] = useState(null)
   const [avatarError, setAvatarError] = useState('')
   const fileRef = useRef(null)
 
   const statValue = (s) => (s && typeof s === 'object' ? Number(s.v) || 0 : Number(s) || 0)
+  const ownedDisciplines = getOwnedDisciplines(sheet)
+  const celerityLevel = ownedDisciplines.find((discipline) => discipline.name === 'Celeridad')?.level || 0
+  const initiative = getInitiativeBreakdown(sheet, { woundPenalty, unspentCelerity })
+  const selectedDiscipline = ownedDisciplines.find((discipline) => discipline.name === activeDiscipline)
 
   const valueOf = (id) => {
     const [kind, a, b] = id.split(':')
@@ -310,6 +327,14 @@ export default function CharacterSheet({
     if (!diceText) setPool([])
   }, [diceText])
 
+  useEffect(() => {
+    setUnspentCelerity((value) => Math.min(value, celerityLevel))
+    if (activeDiscipline && !ownedDisciplines.some((discipline) => discipline.name === activeDiscipline)) {
+      setActiveDiscipline('')
+      setDisciplinePower('')
+    }
+  }, [sheet.disciplinas, celerityLevel, activeDiscipline])
+
   const setHeader = (key, value) => onChange?.({ ...sheet, header: { ...sheet.header, [key]: value } })
   const setAtributo = (group, key, patch) => {
     const stat = sheet.atributos[group][key]
@@ -350,6 +375,28 @@ export default function CharacterSheet({
     } catch (err) {
       setAvatarError(err.message || 'No se pudo subir la foto')
     }
+  }
+
+  const prepareInitiative = () => {
+    const { command } = buildInitiativeCommand(sheet, {
+      woundPenalty,
+      unspentCelerity,
+      targetName: sheet.header.nombre,
+      isOwn,
+    })
+    onCompose?.({ command })
+  }
+
+  const prepareDisciplineRoll = () => {
+    if (!selectedDiscipline) return
+    const command = buildDisciplineCommand({
+      count: disciplinePool,
+      difficulty: disciplineDifficulty,
+      discipline: selectedDiscipline.name,
+      power: disciplinePower,
+      targetName: sheet.header.nombre,
+    })
+    if (command) onCompose?.({ command })
   }
 
   const renderStatGroup = (title, group, getStat, setStatValue, idPrefix, specFor) => (
@@ -447,6 +494,85 @@ export default function CharacterSheet({
           />
           Con especialidad <span>(10 = 2 éxitos)</span>
         </label>
+        <div className="sheet-quick-rolls">
+          <section className="quick-roll-card" aria-labelledby="quick-initiative-title">
+            <h4 id="quick-initiative-title">Iniciativa</h4>
+            <div className="quick-roll-fields">
+              <label>
+                Penalizador de heridas
+                <select value={woundPenalty} onChange={(event) => setWoundPenalty(Math.max(0, Math.min(5, Number(event.target.value) || 0)))}>
+                  {[0, 1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value ? `−${value}` : 'Ninguno'}</option>)}
+                </select>
+              </label>
+              <label>
+                Celeridad no gastada (0–{celerityLevel})
+                <input
+                  type="number"
+                  min="0"
+                  max={celerityLevel}
+                  value={Math.min(unspentCelerity, celerityLevel)}
+                  disabled={!celerityLevel}
+                  onChange={(event) => setUnspentCelerity(Math.max(0, Math.min(celerityLevel, Number(event.target.value) || 0)))}
+                />
+              </label>
+            </div>
+            <p className="quick-roll-preview">
+              1d10 + Destreza {initiative.dexterity} + Astucia {initiative.wits} − heridas {initiative.woundPenalty} + Celeridad {initiative.unspentCelerity} = 1d10{initiative.modifier < 0 ? initiative.modifier : `+${initiative.modifier}`}
+            </p>
+            <p className="muted quick-roll-note">El tracker de Salud no determina este penalizador de forma segura; selecciónalo manualmente.</p>
+            <p className="muted quick-roll-note">Los ajustes de turno son temporales y no se guardan en la ficha.</p>
+            {!isOwn ? <p className="muted quick-roll-note">Ficha objetivo: {sheet.header.nombre || 'Personaje'}. La tirada se registra con la identidad de quien lanza.</p> : null}
+            <button type="button" className="ghost" onClick={prepareInitiative} disabled={rollDisabled}>Preparar iniciativa</button>
+          </section>
+
+          <section className="quick-roll-card" aria-labelledby="quick-discipline-title">
+            <h4 id="quick-discipline-title">Tiradas de Disciplinas</h4>
+            {ownedDisciplines.length ? (
+              <>
+                <div className="quick-discipline-list" aria-label="Disciplinas disponibles">
+                  {ownedDisciplines.map((discipline) => (
+                    <button
+                      key={`${discipline.index}-${discipline.name}`}
+                      type="button"
+                      className={activeDiscipline === discipline.name ? 'ghost is-on' : 'ghost'}
+                      onClick={() => {
+                        setActiveDiscipline((current) => current === discipline.name ? '' : discipline.name)
+                        setDisciplinePower('')
+                      }}
+                      aria-pressed={activeDiscipline === discipline.name}
+                    >
+                      {discipline.name} · {discipline.level}
+                    </button>
+                  ))}
+                </div>
+                {selectedDiscipline ? (
+                  <div className="quick-discipline-config">
+                    <strong>{selectedDiscipline.name} · nivel {selectedDiscipline.level}</strong>
+                    <div className="quick-roll-fields">
+                      <label>
+                        Poder (opcional)
+                        <input value={disciplinePower} onChange={(event) => setDisciplinePower(event.target.value)} placeholder="Nombre del Poder" />
+                      </label>
+                      <label>
+                        Reserva de dados
+                        <input type="number" min="1" max="50" value={disciplinePool} onChange={(event) => setDisciplinePool(Math.max(1, Math.min(50, Number(event.target.value) || 1)))} />
+                      </label>
+                      <label>
+                        Dificultad
+                        <select value={disciplineDifficulty} onChange={(event) => setDisciplineDifficulty(Number(event.target.value))}>
+                          {Array.from({ length: 9 }, (_, index) => index + 2).map((value) => <option key={value} value={value}>{value}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <p className="muted quick-roll-note">El nivel no determina la reserva: consulta el Poder para definir reserva, dificultad, coste y acción</p>
+                    <button type="button" className="ghost" onClick={prepareDisciplineRoll} disabled={rollDisabled}>Preparar tirada WOD</button>
+                  </div>
+                ) : <p className="muted quick-roll-note">Elige una Disciplina para configurar una tirada.</p>}
+                <p className="muted quick-roll-note">Estos controles son temporales y no se guardan en la ficha.</p>
+              </>
+            ) : <p className="muted quick-roll-note">Añade una Disciplina con nombre válido y nivel mayor que 0 para habilitar su tirada.</p>}
+          </section>
+        </div>
       </div>
 
       <div id="sheet-identidad" className="sheet-identity">
@@ -491,20 +617,17 @@ export default function CharacterSheet({
               <div className="sheet-sub-col">
                 <h4>Disciplinas</h4>
                 {sheet.disciplinas.map((item, i) => (
-                  <NamedRow
-                    key={i}
-                    placeholder="Disciplina"
-                    options={DISCIPLINAS}
-                    item={item}
-                    index={i}
-                    selected={pool.some((p) => p.id === `d:${i}`)}
-                    readOnly={readOnly}
-                    rollDisabled={rollDisabled}
-                    onName={(idx, v) => setNamed('disciplinas', idx, { name: v })}
-                    onLevel={(idx, v) => setNamed('disciplinas', idx, { level: v })}
-                    onToggle={() => togglePool(`d:${i}`, item.name || 'Disciplina')}
-                    onRoll={() => composeOne(item.name || 'Disciplina', item.level)}
-                  />
+                  <div key={i} className="stat-row list-row discipline-row">
+                    <Combo
+                      id={`combo-Disciplina-${i}`}
+                      value={item.name}
+                      options={DISCIPLINAS}
+                      readOnly={readOnly}
+                      onChange={(value) => setNamed('disciplinas', i, { name: value })}
+                      placeholder="Disciplina"
+                    />
+                    <Dots value={item.level} readOnly={readOnly} onChange={(value) => setNamed('disciplinas', i, { level: value })} />
+                  </div>
                 ))}
               </div>
               <div className="sheet-sub-col">
@@ -662,6 +785,7 @@ export default function CharacterSheet({
         </div>
         <div className="sheet-footer-item">
           <Field label="Grado de Porte" value={sheet.header.gradoPorte} readOnly={readOnly} onChange={(v) => setHeader('gradoPorte', v)} />
+          <p className="muted sheet-hint">Depende de Humanidad/Senda y solo aplica a tiradas pertinentes; es una referencia manual, no un cálculo canónico.</p>
         </div>
         <p className="muted sheet-budget">{POINT_BUDGET}</p>
       </footer>

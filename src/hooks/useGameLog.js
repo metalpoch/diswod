@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { loadLog, loadLogSince, saveLogEntry, subscribeLog } from '../lib/mesasApi'
 import { createGameSync } from '../lib/sync'
 import { proxiedUrl } from '../lib/supabase'
+import { canUseGameSync } from '../lib/gameSyncPolicy'
 
 function proxyEntry(entry) {
   if (!entry?.player?.avatar) return entry
@@ -16,7 +17,7 @@ function mergeEntries(left, right) {
   return Array.from(map.values()).sort((a, b) => a.ts - b.ts)
 }
 
-export function useGameLog(roomId, identity, persist) {
+export function useGameLog(roomId, identity, persist, syncContext) {
   const [live, setLive] = useState([])
   const [stored, setStored] = useState([])
   const [remotes, setRemotes] = useState([])
@@ -24,9 +25,22 @@ export function useGameLog(roomId, identity, persist) {
   const [connected, setConnected] = useState(false)
   const syncRef = useRef(null)
   const saved = useRef(new Set())
+  const syncAuthorized = canUseGameSync(syncContext || {}, identity)
 
-  useEffect(() => {
-    if (!roomId) return undefined
+  useLayoutEffect(() => {
+    if (!syncAuthorized || !roomId) {
+      const previous = syncRef.current
+      if (previous) {
+        previous.clearAwareness?.()
+        previous.destroy()
+        syncRef.current = null
+      }
+      setLive([])
+      setRemotes([])
+      setPeers(1)
+      setConnected(false)
+      return undefined
+    }
     const sync = createGameSync(roomId, (state) => {
       setLive(state.entries)
       setRemotes(state.remotes || [])
@@ -34,16 +48,20 @@ export function useGameLog(roomId, identity, persist) {
       setConnected(state.connected)
     })
     syncRef.current = sync
-    if (identity) sync.setAwareness(identity)
+    sync.setAwareness(identity)
     return () => {
+      sync.clearAwareness?.()
       sync.destroy()
-      syncRef.current = null
+      if (syncRef.current === sync) syncRef.current = null
     }
-  }, [roomId])
+  }, [roomId, syncAuthorized])
 
-  useEffect(() => {
-    if (identity) syncRef.current?.setAwareness(identity)
-  }, [identity])
+  useLayoutEffect(() => {
+    const sync = syncRef.current
+    if (!sync) return
+    if (syncAuthorized && identity?.id) sync.setAwareness(identity)
+    else sync.clearAwareness?.()
+  }, [identity, syncAuthorized])
 
   useEffect(() => {
     if (!persist?.enabled || !persist.mesaId) {

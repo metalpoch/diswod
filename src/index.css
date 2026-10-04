@@ -125,6 +125,23 @@ code {
 .mark { color: var(--blood-hot); font-size: 28px; line-height: 1; }
 
 .top-actions { display: flex; align-items: center; gap: 8px; }
+.identity-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: var(--muted);
+  max-width: 280px;
+  font-size: 10px;
+  line-height: 1.3;
+  text-align: center;
+}
+.identity-status-verified { color: #a7d9ae; border-color: #47734d; }
+.identity-status-selected { color: #f0cd83; border-color: #80642f; }
+.identity-status-local, .identity-status-unverified { color: #e9a3a3; border-color: #754242; }
+.identity-presence-warning { color: #e9a3a3; }
 .room {
   font-family: "Share Tech Mono", monospace;
   font-size: 12px;
@@ -862,6 +879,11 @@ code {
 .modal-card input:focus { border-color: var(--gold); }
 .modal-card .primary { justify-content: center; }
 .modal-card .gate-age { margin: 0; }
+.identity-claim-list { display: grid; gap: 7px; max-height: min(40vh, 320px); overflow: auto; }
+.identity-claim-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; }
+.identity-claim-list small { color: var(--muted); }
+.identity-claim-direct { border: 1px solid var(--line); padding: 10px; }
+.identity-claim-direct p { margin: 0 0 8px; }
 .gate-people {
   display: grid;
   gap: 6px;
@@ -977,6 +999,41 @@ code {
   border: 1px solid var(--line);
   background: #0b0404;
 }
+.sheet-quick-rolls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 10px;
+}
+.quick-roll-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 9px;
+  border: 1px solid var(--line);
+  background: #100606;
+}
+.quick-roll-card h4 { margin: 0; color: var(--gold); font-family: Cinzel, serif; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.quick-roll-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.quick-roll-fields label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; }
+.quick-roll-fields input, .quick-roll-fields select {
+  width: 100%;
+  min-width: 0;
+  color: var(--ink);
+  background: #0b0404;
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+}
+.quick-roll-fields input:focus, .quick-roll-fields select:focus { border-color: var(--gold); outline: none; }
+.quick-roll-fields input:disabled { opacity: 0.55; }
+.quick-roll-preview { margin: 0; color: var(--gold-soft); font: 12px "Share Tech Mono", monospace; }
+.quick-roll-note { margin: 0; font-size: 11px; line-height: 1.4; }
+.quick-roll-card > .ghost, .quick-discipline-config > .ghost { justify-self: start; min-height: 0; padding: 5px 9px; font-size: 12px; }
+.quick-discipline-list { display: flex; flex-wrap: wrap; gap: 5px; }
+.quick-discipline-list .ghost { min-height: 0; padding: 4px 7px; font-size: 11px; }
+.quick-discipline-config { display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.quick-discipline-config > strong { color: var(--gold-soft); font-size: 12px; }
+.discipline-row { grid-template-columns: minmax(0, 1fr) auto; }
+.discipline-row .combo { min-width: 0; }
 .difficulty { display: flex; align-items: center; gap: 8px; }
 .difficulty > span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
 .difficulty strong { font-family: "Share Tech Mono", monospace; font-size: 18px; color: var(--gold-soft); min-width: 24px; text-align: center; }

@@ -1,4 +1,5 @@
 import { canPromote, makeInviteCode, mapMember, normalizeInvite } from './invite'
+import { identityMembershipPairs } from './playerIdentityLinks'
 import { supabase } from './supabase'
 
 function mapMesa(row) {
@@ -17,6 +18,18 @@ function mapMesa(row) {
     updatedAt: row.updated_at,
     myRole: row.my_role || null,
     backgroundUrl: row.background_url || '',
+    myPlayerId: row.my_player_id || '',
+  }
+}
+
+function assertPersistentIdentity(identity) {
+  const verifiedDiscord = identity?.source === 'discord-auth'
+    && identity?.discordId
+    && identity.discordId === identity.id
+  const localStandalone = identity?.source === 'local'
+    && String(identity.id || '').startsWith('local-')
+  if (!verifiedDiscord && !localStandalone) {
+    throw new Error('OAuth de Discord verificado es necesario para usar mesas guardadas.')
   }
 }
 
@@ -29,16 +42,38 @@ async function uniqueInvite() {
   return makeInviteCode() + makeInviteCode().slice(0, 2)
 }
 
-export async function listMyMesas(playerId) {
-  const { data, error } = await supabase
+export async function listMyMesas(identity) {
+  const playerId = typeof identity === 'string' ? identity : identity?.id
+  if (!playerId) return []
+  const { data: directRows, error: directError } = await supabase
     .from('mesa_members')
-    .select('role, mesas(*)')
+    .select('mesa_id, player_id, role, mesas(*)')
     .eq('player_id', playerId)
-  if (error) throw error
-  return (data || [])
-    .map((row) => mapMesa(row.mesas ? { ...row.mesas, my_role: row.role } : null))
-    .filter(Boolean)
-    .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
+  if (directError) throw directError
+
+  const linkedRows = await Promise.all((identity?.links || []).map(async ({ mesaId, playerId: linkedId }) => {
+    if (!mesaId || !linkedId) return []
+    const { data, error } = await supabase
+      .from('mesa_members')
+      .select('mesa_id, player_id, role, mesas(*)')
+      .eq('mesa_id', mesaId)
+      .eq('player_id', linkedId)
+    if (error) throw error
+    return data || []
+  }))
+
+  // If a direct member and an explicitly linked legacy member coexist, the linked
+  // row is the effective identity for this table; do not merge or rewrite either row.
+  const byMesa = new Map()
+  for (const row of [...(directRows || []), ...linkedRows.flat()]) {
+    if (!row.mesas) continue
+    byMesa.set(row.mesa_id, mapMesa({
+      ...row.mesas,
+      my_role: row.role,
+      my_player_id: row.player_id,
+    }))
+  }
+  return [...byMesa.values()].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
 }
 
 export async function getMesa(id) {
@@ -56,6 +91,7 @@ export async function getMesaByCode(code) {
 }
 
 export async function createMesa({ name, description, kind, identity }) {
+  assertPersistentIdentity(identity)
   const invite = await uniqueInvite()
   const { data, error } = await supabase
     .from('mesas')
@@ -78,6 +114,7 @@ export async function createMesa({ name, description, kind, identity }) {
 }
 
 export async function addMember(mesaId, identity, role, charName) {
+  assertPersistentIdentity(identity)
   const { data, error } = await supabase
     .from('mesa_members')
     .upsert({
@@ -94,14 +131,16 @@ export async function addMember(mesaId, identity, role, charName) {
 }
 
 export async function joinByCode(code, identity) {
+  assertPersistentIdentity(identity)
   const mesa = await getMesaByCode(code)
   if (!mesa) throw new Error('Código inválido')
   const members = await listMembers(mesa.id)
-  const existing = members.find((m) => m.player_id === identity.id)
-  if (existing) return { mesa, member: existing, isNew: false }
+  const linkedPlayerId = identity?.links?.find((link) => link.mesaId === mesa.id)?.playerId
+  const existing = members.find((m) => m.player_id === identity.id || m.player_id === linkedPlayerId)
+  if (existing) return { mesa: { ...mesa, myPlayerId: existing.player_id }, member: existing, isNew: false }
   const role = canPromote(members) ? 'player' : 'visitor'
   const member = await addMember(mesa.id, identity, role)
-  return { mesa, member, isNew: true }
+  return { mesa: { ...mesa, myPlayerId: member.player_id }, member, isNew: true }
 }
 
 export async function renameMember(mesaId, playerId, name) {
@@ -127,6 +166,8 @@ export async function renameMember(mesaId, playerId, name) {
     const { error: updateError } = await supabase
       .from('log_entries')
       .update({ player_name: name, payload })
+      .eq('mesa_id', mesaId)
+      .eq('player_id', playerId)
       .eq('id', row.id)
     if (updateError) throw updateError
   }
@@ -192,6 +233,8 @@ export async function setMemberAvatar(mesaId, playerId, avatar, photo) {
     const { error: updateError } = await supabase
       .from('log_entries')
       .update({ payload })
+      .eq('mesa_id', mesaId)
+      .eq('player_id', playerId)
       .eq('id', row.id)
     if (updateError) throw updateError
   }
@@ -425,46 +468,83 @@ export function codeFromLocation() {
   return normalizeInvite(new URLSearchParams(window.location.search).get('code') || '')
 }
 
-export async function deleteMyData(playerId) {
-  if (!supabase || !playerId) throw new Error('Falta identidad')
+export async function deleteMyData(identity) {
+  const directId = typeof identity === 'string' ? identity : identity?.id
+  if (!supabase || (!directId && !(identity.links || []).length)) throw new Error('Falta identidad')
 
-  const { data: logs } = await supabase
-    .from('log_entries')
-    .select('id, payload')
-    .eq('player_id', playerId)
-  for (const row of logs || []) {
-    const payload = {
-      ...(row.payload || {}),
-      player: { id: 'deleted', name: 'Eliminado' },
-    }
-    await supabase
-      .from('log_entries')
-      .update({ payload, player_id: null, player_name: 'Eliminado' })
-      .eq('id', row.id)
-  }
-
-  const { data: memberships } = await supabase
-    .from('mesa_members')
-    .select('mesa_id, role')
-    .eq('player_id', playerId)
-
-  for (const row of memberships || []) {
-    if (row.role !== 'dm') continue
-    const { data: others } = await supabase
+  let directMemberships = []
+  if (directId) {
+    const { data, error } = await supabase
       .from('mesa_members')
-      .select('player_id, role')
-      .eq('mesa_id', row.mesa_id)
-    const next = (others || []).find((m) => m.player_id !== playerId)
-    if (next) {
-      await supabase.from('mesa_members').update({ role: 'dm' }).eq('mesa_id', row.mesa_id).eq('player_id', next.player_id)
-      await supabase.from('mesas').update({ dm_id: next.player_id, updated_at: new Date().toISOString() }).eq('id', row.mesa_id)
+      .select('mesa_id, player_id')
+      .eq('player_id', directId)
+    if (error) throw error
+    directMemberships = data || []
+  }
+
+  const targets = identityMembershipPairs(identity, directMemberships)
+  const targetIdsByMesa = new Map()
+  for (const pair of targets) {
+    const ids = targetIdsByMesa.get(pair.mesa_id) || new Set()
+    ids.add(pair.player_id)
+    targetIdsByMesa.set(pair.mesa_id, ids)
+  }
+
+  for (const pair of targets) {
+    const { data: logs, error: logsError } = await supabase
+      .from('log_entries')
+      .select('id, payload')
+      .eq('mesa_id', pair.mesa_id)
+      .eq('player_id', pair.player_id)
+    if (logsError) throw logsError
+    for (const row of logs || []) {
+      const payload = {
+        ...(row.payload || {}),
+        player: { id: 'deleted', name: 'Eliminado' },
+      }
+      const { error } = await supabase
+        .from('log_entries')
+        .update({ payload, player_id: null, player_name: 'Eliminado' })
+        .eq('mesa_id', pair.mesa_id)
+        .eq('player_id', pair.player_id)
+        .eq('id', row.id)
+      if (error) throw error
+    }
+
+    const { data: member, error: memberError } = await supabase
+      .from('mesa_members')
+      .select('role')
+      .eq('mesa_id', pair.mesa_id)
+      .eq('player_id', pair.player_id)
+      .maybeSingle()
+    if (memberError) throw memberError
+    if (member?.role === 'dm') {
+      const { data: others, error: othersError } = await supabase
+        .from('mesa_members')
+        .select('player_id, role')
+        .eq('mesa_id', pair.mesa_id)
+      if (othersError) throw othersError
+      const next = (others || []).find((row) => !targetIdsByMesa.get(pair.mesa_id).has(row.player_id))
+      if (next) {
+        const promoted = await supabase.from('mesa_members').update({ role: 'dm' })
+          .eq('mesa_id', pair.mesa_id).eq('player_id', next.player_id)
+        if (promoted.error) throw promoted.error
+        const updatedMesa = await supabase.from('mesas').update({ dm_id: next.player_id, updated_at: new Date().toISOString() })
+          .eq('id', pair.mesa_id)
+        if (updatedMesa.error) throw updatedMesa.error
+      }
     }
   }
 
-  const notes = await supabase.from('player_notes').delete().eq('player_id', playerId)
-  if (notes.error) throw notes.error
-  const boards = await supabase.from('player_boards').delete().eq('player_id', playerId)
-  if (boards.error) throw boards.error
-  const members = await supabase.from('mesa_members').delete().eq('player_id', playerId)
-  if (members.error) throw members.error
+  for (const pair of targets) {
+    const notes = await supabase.from('player_notes').delete()
+      .eq('mesa_id', pair.mesa_id).eq('player_id', pair.player_id)
+    if (notes.error) throw notes.error
+    const boards = await supabase.from('player_boards').delete()
+      .eq('mesa_id', pair.mesa_id).eq('player_id', pair.player_id)
+    if (boards.error) throw boards.error
+    const members = await supabase.from('mesa_members').delete()
+      .eq('mesa_id', pair.mesa_id).eq('player_id', pair.player_id)
+    if (members.error) throw members.error
+  }
 }

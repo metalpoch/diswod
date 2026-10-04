@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import IdentityStatus from './IdentityStatus'
 import LegalLinks from './LegalLinks'
 
 const KINDS = [
@@ -9,6 +10,9 @@ const KINDS = [
 
 export default function MesaLobby({
   identity,
+  identityMode,
+  presenceStatus,
+  persistentIdentityBlocked = false,
   mesas,
   loading,
   error,
@@ -32,7 +36,7 @@ export default function MesaLobby({
 
   const submit = async (event) => {
     event.preventDefault()
-    if (!name.trim() || busy) return
+    if (!name.trim() || busy || persistentIdentityBlocked) return
     setBusy(true)
     try {
       await onCreate({ name, description, kind })
@@ -43,7 +47,7 @@ export default function MesaLobby({
 
   const join = async (event) => {
     event.preventDefault()
-    if (!code.trim() || busy) return
+    if (!code.trim() || busy || persistentIdentityBlocked) return
     setBusy(true)
     setJoinError('')
     try {
@@ -61,12 +65,18 @@ export default function MesaLobby({
         <header className="lobby-head">
           <p className="eyebrow">Archivo de crónicas</p>
           <h1>Mesas de {identity.name}</h1>
+          <IdentityStatus identity={identity} mode={identityMode} presenceStatus={presenceStatus} />
           <p className="gate-copy">
             Crea una mesa o entra con el código del Narrador. 4 asientos; el resto son visitantes.
           </p>
         </header>
 
         {error ? <p className="hint bad">{error}</p> : null}
+        {persistentIdentityBlocked ? (
+          <p className="hint bad">
+            Para crear o unirte a mesas guardadas necesitas OAuth de Discord verificado. Elegir un participante no verifica la cuenta; puedes jugar sin guardar.
+          </p>
+        ) : null}
 
         <form className="lobby-join" onSubmit={join}>
           <label htmlFor="invite-code">Código de invitación</label>
@@ -79,7 +89,7 @@ export default function MesaLobby({
               maxLength={8}
               autoCapitalize="characters"
             />
-            <button type="submit" className="primary" disabled={!code.trim() || busy}>Unirse</button>
+              <button type="submit" className="primary" disabled={!code.trim() || busy || persistentIdentityBlocked}>Unirse</button>
           </div>
           {joinError ? <p className="hint bad">{joinError}</p> : null}
         </form>
@@ -112,13 +122,13 @@ export default function MesaLobby({
                   <div className="lobby-actions">
                     {mesa.status === 'active' ? (
                       <>
-                        <button type="button" className="primary" onClick={() => onOpen(mesa)}>Entrar</button>
+                        <button type="button" className="primary" onClick={() => onOpen(mesa)} disabled={persistentIdentityBlocked}>Entrar</button>
                         {mesa.myRole === 'dm' ? (
-                          <button type="button" className="ghost" onClick={() => onArchive(mesa)}>Archivar</button>
+                          <button type="button" className="ghost" onClick={() => onArchive(mesa)} disabled={persistentIdentityBlocked}>Archivar</button>
                         ) : null}
                       </>
                     ) : (
-                      <button type="button" className="primary" onClick={() => onReopen(mesa)}>Retomar</button>
+                      <button type="button" className="primary" onClick={() => onReopen(mesa)} disabled={persistentIdentityBlocked}>Retomar</button>
                     )}
                   </div>
                 </li>
@@ -138,13 +148,13 @@ export default function MesaLobby({
             </select>
             <label htmlFor="mesa-desc">Sinopsis</label>
             <textarea id="mesa-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="Una cacería en el downtown…" />
-            <button type="submit" className="primary" disabled={!name.trim() || busy}>
+            <button type="submit" className="primary" disabled={!name.trim() || busy || persistentIdentityBlocked}>
               Crear y ser Narrador
             </button>
             <button type="button" className="ghost" onClick={onSkip}>
               Jugar sin guardar
             </button>
-            <button type="button" className="ghost" onClick={onErase}>
+            <button type="button" className="ghost" onClick={onErase} disabled={persistentIdentityBlocked}>
               Borrar mis datos
             </button>
           </form>
