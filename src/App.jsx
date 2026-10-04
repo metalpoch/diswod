@@ -15,6 +15,7 @@ import { useMembers } from './hooks/useMembers'
 import { useMesaBackground } from './hooks/useMesaBackground'
 import { useMesas } from './hooks/useMesas'
 import { useMusic } from './hooks/useMusic'
+import { useScene } from './hooks/useScene'
 import { useNpcs } from './hooks/useNpcs'
 import { useSheet } from './hooks/useSheet'
 import { uploadAvatar, uploadBackground, uploadPhoto, validAvatarFile } from './lib/avatar'
@@ -87,6 +88,7 @@ export default function App() {
   const npcs = useNpcs(persist.enabled ? persist.mesaId : '')
   const backgroundUrl = useMesaBackground(persist.enabled ? persist.mesaId : '')
   const currentMesaId = persist.enabled ? persist.mesaId : ''
+  const scene = useScene(currentMesaId, activity.oauthAccessToken, party.isDm, effectiveId)
   const rosterCurrent = isRosterReadyForMesa(party, currentMesaId)
   const npcRosterCurrent = isRosterReadyForMesa(npcs, currentMesaId)
   const memberIds = rosterCurrent ? party.members.map((member) => member.player_id) : []
@@ -178,7 +180,11 @@ export default function App() {
     [persist.enabled, party.members, players, activity.identity],
   )
   const setIdentity = activity.setIdentity
-  const music = useMusic()
+  const music = useMusic(scene.music, {
+    persisted: Boolean(currentMesaId),
+    sceneReady: scene.ready,
+    contextKey: `${currentMesaId}:${effectiveId}`,
+  })
 
   useEffect(() => {
     if (persist.enabled) return
@@ -646,6 +652,24 @@ export default function App() {
           backgroundUrl={backgroundUrl}
           onSetBackground={setBackground}
           onClearBackground={clearBackground}
+          scene={scene}
+          musicPlayback={music}
+          onSceneMusic={async (mode, trackId) => {
+            try {
+              const applied = await scene.setMusic(mode, trackId)
+              if (applied) flash('Música de escena actualizada')
+            } catch (err) {
+              flash(err.message || 'No se pudo cambiar la música')
+            }
+          }}
+          onSceneFrenzy={async (playerId, active) => {
+            try {
+              const applied = await scene.setFrenzy(playerId, active)
+              if (applied) flash(active ? 'Frenesí activado' : 'Frenesí quitado')
+            } catch (err) {
+              flash(err.message || 'No se pudo guardar el estado narrativo')
+            }
+          }}
         />
         {showTable && !isMobile ? (
           <div

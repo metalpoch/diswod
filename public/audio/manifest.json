@@ -2,16 +2,16 @@
   "_nota": "Pistas en Supabase Storage (bucket 'audio'). Sube los mp3 desde el dashboard. 'volume' es el volumen global (0..1).",
   "volume": 0.2,
   "tracks": [
-    "alex-morgan-ambient-horror-creepy-atmosphere-dark-587402.mp3",
-    "atlasaudio-sting-578929.mp3",
-    "ribhavagrawal-ghostly-groove-dark-ambience-230665.mp3",
-    "ribhavagrawal-terror-heights-dark-ambience-230667.mp3",
-    "suno-Bleak Ritual v2.mp3",
-    "suno-Bleak Ritual.mp3",
-    "suno-Masquerade Rust V2.mp3",
-    "suno-Masquerade Rust.mp3",
-    "suno-Pasillo Hundido.mp3",
-    "welbornworks-thevoid-326712.mp3",
-    "willianbalfe-game-menu-music-box-horro-soundtrack-248291.mp3"
+    { "id": "alex-morgan-ambient-horror-creepy-atmosphere-dark-587402.mp3", "title": "Ambient Horror" },
+    { "id": "atlasaudio-sting-578929.mp3", "title": "Sting" },
+    { "id": "ribhavagrawal-ghostly-groove-dark-ambience-230665.mp3", "title": "Ghostly Groove" },
+    { "id": "ribhavagrawal-terror-heights-dark-ambience-230667.mp3", "title": "Terror Heights" },
+    { "id": "suno-Bleak Ritual v2.mp3", "title": "Bleak Ritual II" },
+    { "id": "suno-Bleak Ritual.mp3", "title": "Bleak Ritual" },
+    { "id": "suno-Masquerade Rust V2.mp3", "title": "Masquerade Rust II" },
+    { "id": "suno-Masquerade Rust.mp3", "title": "Masquerade Rust" },
+    { "id": "suno-Pasillo Hundido.mp3", "title": "Pasillo Hundido" },
+    { "id": "welbornworks-thevoid-326712.mp3", "title": "The Void" },
+    { "id": "willianbalfe-game-menu-music-box-horro-soundtrack-248291.mp3", "title": "Music Box Horror" }
   ]
 }

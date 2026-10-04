@@ -36,6 +36,7 @@ export default function Help() {
             <p>WOD (<code>NwodD</code>): los 1 anulan éxitos. Dificultad 2–10. Con <code>!</code> (especialidad) los 10 cuentan 2 éxitos.</p>
             <p>Genérico (<code>NdS</code>): suma los dados, con modificador opcional (<code>/r 1d10+0</code>).</p>
             <p>Suma (<code>+</code>): lanza varias reservas a la vez (<code>/r 4wod6 + 3wod8</code>).</p>
+            <p>Escena: Frenesí / La Bestia es un estado narrativo manual y no cambia resultados. Hambre (Sangre baja) y Fuerza de Voluntad temporal 0 son lecturas derivadas, no activadores automáticos.</p>
             <p>
               <a href="/tos.html" target="_blank" rel="noreferrer">Condiciones</a>
               {' · '}

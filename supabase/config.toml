@@ -1,2 +1,5 @@
 [functions.mesa-player-identity]
 verify_jwt = false
+
+[functions.mesa-scene-control]
+verify_jwt = false

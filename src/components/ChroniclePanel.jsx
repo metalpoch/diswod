@@ -2,6 +2,7 @@ import CharacterSheet from './CharacterSheet'
 import GameLog from './GameLog'
 import MembersPanel from './MembersPanel'
 import NotesPad from './NotesPad'
+import ScenePanel from './ScenePanel'
 import Whiteboard from './Whiteboard'
 
 export default function ChroniclePanel({
@@ -44,6 +45,10 @@ export default function ChroniclePanel({
   backgroundUrl,
   onSetBackground,
   onClearBackground,
+  scene,
+  musicPlayback,
+  onSceneMusic,
+  onSceneFrenzy,
 }) {
   const photos = Object.fromEntries(
     (members || []).map((m) => [m.player_id, m.photo || m.avatar]),
@@ -57,6 +62,7 @@ export default function ChroniclePanel({
             <button type="button" className={tab === 'ficha' ? 'is-on' : ''} onClick={() => onTab('ficha')}>Ficha</button>
             <button type="button" className={tab === 'notes' ? 'is-on' : ''} onClick={() => onTab('notes')}>Notas</button>
             <button type="button" className={tab === 'board' ? 'is-on' : ''} onClick={() => onTab('board')}>Pizarra</button>
+            <button type="button" className={tab === 'scene' ? 'is-on' : ''} onClick={() => onTab('scene')}>Escena</button>
             <button type="button" className={tab === 'mesa' ? 'is-on' : ''} onClick={() => onTab('mesa')}>Mesa</button>
           </>
         ) : null}
@@ -138,6 +144,24 @@ export default function ChroniclePanel({
       ) : null}
       {persist && tab === 'notes' ? <NotesPad mesaId={persist.mesaId} playerId={playerId} /> : null}
       {persist && tab === 'board' ? <Whiteboard mesaId={persist.mesaId} playerId={playerId} /> : null}
+      {persist && tab === 'scene' ? (
+        <ScenePanel
+          members={members}
+          tracks={scene?.tracks || []}
+          music={scene?.music || { mode: 'auto', trackId: null, stale: false }}
+          conditions={scene?.conditions || []}
+          ready={scene?.ready}
+          error={scene?.error}
+          onRetry={scene?.retry}
+          playbackError={musicPlayback?.playbackError}
+          localFallback={musicPlayback?.localFallback}
+          onRetryMusic={musicPlayback?.retryMusic}
+          onUseAutomatic={musicPlayback?.useAutomatic}
+          isDm={isDm}
+          onMusic={onSceneMusic}
+          onFrenzy={onSceneFrenzy}
+        />
+      ) : null}
       {persist && tab === 'mesa' ? (
         <MembersPanel
           mesa={mesa}

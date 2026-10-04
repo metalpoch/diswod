@@ -38,6 +38,7 @@ import {
   removeHealthDamage,
   summarizeHealth,
 } from '../lib/healthTrack'
+import { getBloodRules, getHuntingInfo } from '../lib/bloodRules'
 
 const HEALTH_SYMBOLS = ['', '/', 'X', '*']
 const HEALTH_LEVEL_PENALTIES = [0, 1, 1, 2, 2, 5, null]
@@ -292,6 +293,12 @@ export default function CharacterSheet({
 
   const statValue = (s) => (s && typeof s === 'object' ? Number(s.v) || 0 : Number(s) || 0)
   const health = summarizeHealth(sheet.salud)
+  const bloodRules = getBloodRules(sheet.header.generacion)
+  const huntingInfo = getHuntingInfo(
+    sheet.virtudes.autocontrolNombre,
+    Number(sheet.virtudes.autocontrol),
+    Number(sheet.sangre.actual),
+  )
   const healthEditable = !readOnly && Boolean(onChange) && status !== 'Error al guardar' && status !== 'Guardado cancelado'
   const healthArrayValid = isValidHealth(sheet.salud)
   const ownedDisciplines = getOwnedDisciplines(sheet)
@@ -889,6 +896,36 @@ export default function CharacterSheet({
               <NumField label="Total" value={sheet.experiencia.total} min={0} readOnly={readOnly} onChange={(v) => setEstado('experiencia', { ...sheet.experiencia, total: v })} />
               <NumField label="Gastada" value={sheet.experiencia.gastada} min={0} readOnly={readOnly} onChange={(v) => setEstado('experiencia', { ...sheet.experiencia, gastada: v })} />
             </div>
+          </div>
+          <div className="blood-info" aria-label="Referencia informativa de Sangre y hambre">
+            <h4>Sangre y hambre · referencia V20</h4>
+            <p className="muted blood-info-scope">Cálculos para vampiros V20. La ficha no identifica tipo de criatura: no se infiere que un personaje o NPC sea mortal, ghoul u otra condición.</p>
+            <div className="blood-info-limits">
+              <p><strong>Reserva máxima por Generación:</strong> {bloodRules ? `${bloodRules.max} Sangre` : 'sin cálculo (Generación desconocida o no cubierta)'}</p>
+              <p><strong>Gasto máximo por turno:</strong> {bloodRules ? `${bloodRules.perTurn} Sangre` : 'sin cálculo'}</p>
+            </div>
+            {bloodRules && (Number(sheet.sangre.max) !== bloodRules.max || Number(sheet.sangre.porTurno) !== bloodRules.perTurn) ? (
+              <p className="blood-info-alert" role="status">Los valores manuales de la ficha (Máx. {sheet.sangre.max}; por turno {sheet.sangre.porTurno}) difieren de esta referencia. No se modifican.</p>
+            ) : null}
+            {!bloodRules ? <p className="muted blood-info-note">La regla de Generación no se reconoce aquí (incluida 3.ª); conserva como referencia tus valores manuales.</p> : null}
+            {huntingInfo ? (
+              <div className="blood-hunger" role="status">
+                <strong>Umbral de caza:</strong> menos de {huntingInfo.threshold} Sangre (7 − {huntingInfo.virtueName} {huntingInfo.virtueValue}).{' '}
+                {huntingInfo.isEmpty
+                  ? 'Sin Sangre: está vorazmente hambriento; el Frenesí puede ser probable ante ciertos estímulos, pero no es automático. El Narrador decide estímulos y chequeos.'
+                  : huntingInfo.isBelowThreshold
+                    ? 'La reserva actual está por debajo del umbral: está hambriento.'
+                    : huntingInfo.isAtThreshold
+                      ? 'La reserva está justo en el umbral; no está por debajo.'
+                      : 'La reserva actual está por encima del umbral.'}
+                <p className="muted blood-info-note">En la tirada de caza, la reserva de la Virtud no puede superar la Sangre actual.</p>
+              </div>
+            ) : <p className="muted blood-info-note">No se puede calcular el umbral: elige Autocontrol o Instinto con un valor válido.</p>}
+            <ul className="blood-info-notes">
+              <li>La regla general es perder 1 punto de Sangre por noche. El Manual expresa una excepción para el Letargo voluntario; no queda claro si se aplica también al involuntario. Este panel no descuenta Sangre ni controla el cambio de noche.</li>
+              <li>Curar daño contundente o letal cuesta 1 Sangre por nivel, sujeto a inactividad y Generación. Curar daño agravado cuesta 5 Sangre y un día completo de descanso por nivel. Para niveles adicionales se requieren gastos adicionales de Sangre y Fuerza de Voluntad, según el Manual.</li>
+              <li>Quitar Salud en el tracker no gasta Sangre ni aplica curación. Los poderes tienen costes propios; no se deducen por nombre o nivel.</li>
+            </ul>
           </div>
         </Section>
       </div>
