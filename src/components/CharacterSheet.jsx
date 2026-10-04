@@ -85,8 +85,8 @@ function StatRow({ label, value, selected, readOnly, rollDisabled, onToggle, onC
         type="button"
         className={selected ? 'stat-name is-selected' : 'stat-name'}
         onClick={onToggle}
-        disabled={readOnly}
         title={label}
+        aria-label={`${selected ? 'Quitar' : 'Añadir'} ${label} ${selected ? 'de' : 'a'} la reserva combinada`}
       >
         {label}
       </button>
@@ -95,8 +95,9 @@ function StatRow({ label, value, selected, readOnly, rollDisabled, onToggle, onC
         type="button"
         className="stat-roll"
         onClick={onRoll}
-        disabled={readOnly || rollDisabled || !value}
+        disabled={rollDisabled || !value}
         title={value ? `Tirar ${value}d10` : 'Sin puntos'}
+        aria-label={`Tirar ${label}, ${value} dados`}
       >
         <DieIcon />
       </button>
@@ -111,8 +112,8 @@ function VirtueRow({ name, nameOptions, value, selected, readOnly, rollDisabled,
         type="button"
         className={selected ? 'stat-toggle is-selected' : 'stat-toggle'}
         onClick={onToggle}
-        disabled={readOnly}
         title="Añadir o quitar de la tirada combinada"
+        aria-label={`${selected ? 'Quitar' : 'Añadir'} ${name} ${selected ? 'de' : 'a'} la reserva combinada`}
       >
         {selected ? '−' : '+'}
       </button>
@@ -131,8 +132,9 @@ function VirtueRow({ name, nameOptions, value, selected, readOnly, rollDisabled,
         type="button"
         className="stat-roll"
         onClick={onRoll}
-        disabled={readOnly || rollDisabled || !value}
+        disabled={rollDisabled || !value}
         title={value ? `Tirar ${value}d10` : 'Sin puntos'}
+        aria-label={`Tirar ${name}, ${value} dados`}
       >
         <DieIcon />
       </button>
@@ -147,8 +149,8 @@ function NamedRow({ item, index, selected, readOnly, rollDisabled, placeholder, 
         type="button"
         className={selected ? 'stat-toggle is-selected' : 'stat-toggle'}
         onClick={onToggle}
-        disabled={readOnly}
         title="Añadir o quitar de la tirada combinada"
+        aria-label={`${selected ? 'Quitar' : 'Añadir'} ${item.name || placeholder} ${selected ? 'de' : 'a'} la reserva combinada`}
       >
         {selected ? '−' : '+'}
       </button>
@@ -165,8 +167,9 @@ function NamedRow({ item, index, selected, readOnly, rollDisabled, placeholder, 
         type="button"
         className="stat-roll"
         onClick={onRoll}
-        disabled={readOnly || rollDisabled || !item.level}
+        disabled={rollDisabled || !item.level}
         title={item.level ? `Tirar ${item.level}d10` : 'Sin nivel'}
+        aria-label={`Tirar ${item.name || placeholder}, ${item.level} dados`}
       >
         <DieIcon />
       </button>
@@ -236,9 +239,9 @@ function NumField({ label, value, readOnly, onChange, min, max }) {
   )
 }
 
-function Section({ title, children, className }) {
+function Section({ title, children, className, id }) {
   return (
-    <section className={className ? `sheet-section ${className}` : 'sheet-section'}>
+    <section id={id} className={className ? `sheet-section ${className}` : 'sheet-section'}>
       <header className="sheet-section-head"><h3>{title}</h3></header>
       <div className="sheet-section-body">{children}</div>
     </section>
@@ -249,6 +252,7 @@ export default function CharacterSheet({
   sheet,
   readOnly,
   status,
+  onRetrySave,
   rollDisabled,
   onChange,
   onCompose,
@@ -413,24 +417,39 @@ export default function CharacterSheet({
             onChange={pickPhoto}
           />
           {avatarError ? <span className="hint bad">{avatarError}</span> : null}
-          <small className="sheet-status">{status}</small>
+          <span className={`sheet-status${status === 'Error al guardar' || status === 'Guardado cancelado' ? ' is-error' : status === 'Guardado' ? ' is-saved' : status ? ' is-saving' : ''}`} role="status" aria-live="polite">
+            {readOnly ? 'Solo lectura · puedes armar tiradas' : status || 'Cambios automáticos'}
+          </span>
+          {status === 'Error al guardar' && !readOnly ? (
+            <button type="button" className="sheet-retry-save" onClick={onRetrySave}>Reintentar guardado</button>
+          ) : null}
         </div>
       </header>
 
+      <nav className="sheet-nav" aria-label="Secciones de la ficha">
+        <a href="#sheet-identidad">Identidad</a>
+        <a href="#sheet-atributos">Atributos</a>
+        <a href="#sheet-habilidades">Habilidades</a>
+        <a href="#sheet-ventajas">Ventajas</a>
+        <a href="#sheet-salud">Estado</a>
+      </nav>
+
       <div className="sheet-rollbar">
-        <p className="muted sheet-hint">Toca un nombre para sumar a la tirada, o el dado para una tirada simple. La tirada se arma abajo, en el campo de dados.</p>
+        <div className="sheet-roll-copy">
+          <strong>Arma tu reserva</strong>
+          <p className="muted sheet-hint">Pulsa el nombre para combinar rasgos; usa ⚄ para enviar solo ese rasgo al campo de dados.</p>
+        </div>
         <label className="spec-toggle">
           <input
             type="checkbox"
             checked={specialty}
-            disabled={readOnly}
             onChange={(e) => toggleSpecialty(e.target.checked)}
           />
-          Con especialidad (10 = 2 éxitos)
+          Con especialidad <span>(10 = 2 éxitos)</span>
         </label>
       </div>
 
-      <div className="sheet-identity">
+      <div id="sheet-identidad" className="sheet-identity">
         <div className="sheet-id-col">
           <Field label="Nombre" value={sheet.header.nombre} readOnly={readOnly} onChange={(v) => setHeader('nombre', v)} />
           <Field label="Jugador" value={sheet.header.jugador} readOnly={readOnly} onChange={(v) => setHeader('jugador', v)} />
@@ -450,14 +469,14 @@ export default function CharacterSheet({
 
       <div className="sheet-body">
         <div className="sheet-main">
-          <Section title="Atributos">
+          <Section title="Atributos" id="sheet-atributos">
             <div className="sheet-tri">
               {renderStatGroup('Físicos', ATRIBUTOS.fisicos, (k) => sheet.atributos.fisicos[k], (k, s) => setAtributo('fisicos', k, s), 'a:fisicos', ESPECIALIDADES_ATRIBUTOS)}
               {renderStatGroup('Sociales', ATRIBUTOS.sociales, (k) => sheet.atributos.sociales[k], (k, s) => setAtributo('sociales', k, s), 'a:sociales', ESPECIALIDADES_ATRIBUTOS)}
               {renderStatGroup('Mentales', ATRIBUTOS.mentales, (k) => sheet.atributos.mentales[k], (k, s) => setAtributo('mentales', k, s), 'a:mentales', ESPECIALIDADES_ATRIBUTOS)}
             </div>
           </Section>
-          <Section title="Habilidades">
+          <Section title="Habilidades" id="sheet-habilidades">
             <div className="sheet-tri">
               {renderStatGroup('Talentos', HABILIDADES.talentos, (k) => sheet.habilidades.talentos[k], (k, s) => setHabilidad('talentos', k, s), 'h:talentos', ESPECIALIDADES_HABILIDADES)}
               {renderStatGroup('Técnicas', HABILIDADES.tecnicas, (k) => sheet.habilidades.tecnicas[k], (k, s) => setHabilidad('tecnicas', k, s), 'h:tecnicas', ESPECIALIDADES_HABILIDADES)}
@@ -467,7 +486,7 @@ export default function CharacterSheet({
         </div>
 
         <div className="sheet-side">
-          <Section title="Ventajas">
+          <Section title="Ventajas" id="sheet-ventajas">
             <div className="sheet-side-grid">
               <div className="sheet-sub-col">
                 <h4>Disciplinas</h4>
@@ -590,7 +609,7 @@ export default function CharacterSheet({
       </div>
 
       <div className="sheet-state">
-        <Section title="Salud">
+        <Section title="Salud" id="sheet-salud">
           <div className="health-grid">
             {HEALTH_LEVELS.map((level, i) => {
               const state = sheet.salud[i] || 0

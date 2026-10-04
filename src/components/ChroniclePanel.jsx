@@ -22,9 +22,15 @@ export default function ChroniclePanel({
   onCopyCode,
   sheet,
   sheetStatus,
+  sheetReady,
+  sheetError,
+  onRetrySheet,
+  onRetrySheetSave,
   sheetReadOnly,
   sheetTarget,
   onSheetTarget,
+  sheetTargetReady,
+  npcTargetReady,
   onSheetChange,
   onCompose,
   diceText,
@@ -68,6 +74,7 @@ export default function ChroniclePanel({
                   id="sheet-target"
                   value={sheetTarget || ''}
                   onChange={(e) => onSheetTarget(e.target.value || null)}
+                  disabled={!sheetTargetReady}
                 >
                   <option value="">Yo ({me?.name || 'Narrador'})</option>
                   {members
@@ -85,29 +92,47 @@ export default function ChroniclePanel({
                     type="button"
                     className={sheetTarget === npc.player_id ? 'ghost is-on' : 'ghost'}
                     onClick={() => onSheetTarget(npc.player_id)}
+                    disabled={!sheetTargetReady || !npcTargetReady}
                   >
                     {npc.name}
                   </button>
                 ))}
-                <button type="button" className="ghost" onClick={onCreateNpc} title="Crear ficha de NPC">+ NPC</button>
+                <button type="button" className="ghost" onClick={onCreateNpc} title="Crear ficha de NPC" disabled={!sheetTargetReady || !npcTargetReady}>+ NPC</button>
               </div>
               {sheetTarget?.startsWith('npc-') ? (
-                <button type="button" className="ghost danger" onClick={() => onDeleteNpc(sheetTarget)}>Eliminar NPC</button>
+                <button type="button" className="ghost danger" onClick={() => onDeleteNpc(sheetTarget)} disabled={!sheetTargetReady || !npcTargetReady}>Eliminar NPC</button>
               ) : null}
             </div>
           ) : null}
-          <CharacterSheet
-            sheet={sheet}
-            readOnly={sheetReadOnly}
-            status={sheetStatus}
-            rollDisabled={rollDisabled}
-            onChange={sheetReadOnly ? undefined : onSheetChange}
-            onCompose={onCompose}
-            diceText={diceText}
-            avatar={avatar}
-            onAvatar={onAvatar}
-            isOwn={isOwn}
-          />
+          <div className="sheet-frame" aria-busy={!sheetReady}>
+            {!sheetReady ? (
+              <div className="sheet-load-state" role="status" aria-live="polite">
+                <span className="sheet-state-mark" aria-hidden="true">◌</span>
+                <div><strong>Cargando ficha</strong><p>Esperando los datos guardados de este personaje.</p></div>
+              </div>
+            ) : sheetError ? (
+              <div className="sheet-load-state is-error" role="alert">
+                <span className="sheet-state-mark" aria-hidden="true">!</span>
+                <div><strong>No se pudo abrir la ficha</strong><p>{sheetError}</p>
+                  <button type="button" className="ghost" onClick={onRetrySheet}>Volver a intentar</button>
+                </div>
+              </div>
+            ) : (
+              <CharacterSheet
+                sheet={sheet}
+                readOnly={sheetReadOnly}
+                status={sheetStatus}
+                onRetrySave={onRetrySheetSave}
+                rollDisabled={rollDisabled}
+                onChange={sheetReadOnly ? undefined : onSheetChange}
+                onCompose={onCompose}
+                diceText={diceText}
+                avatar={avatar}
+                onAvatar={onAvatar}
+                isOwn={isOwn}
+              />
+            )}
+          </div>
         </>
       ) : null}
       {persist && tab === 'notes' ? <NotesPad mesaId={persist.mesaId} playerId={playerId} /> : null}

@@ -23,6 +23,8 @@ import { proxiedUrl } from './lib/supabase'
 import { hasSupabase } from './lib/supabase'
 import { claimSeat, seatedFromMembers, seatedPlayers } from './lib/seats'
 import { copyText } from './lib/clipboard'
+import { canEditSheetTarget, canViewSheetTarget, isRosterReadyForMesa } from './lib/sheetAccess'
+import { deleteNpcAfterSaving } from './lib/sheetQueue'
 
 function useIsMobile(bp = 800) {
   const [m, setM] = useState(() => {
@@ -51,6 +53,9 @@ export default function App() {
   const isMobile = useIsMobile()
   const [showTable, setShowTable] = useState(!isMobile)
   const [sheetTarget, setSheetTarget] = useState(null)
+  const [sheetTargetMesaId, setSheetTargetMesaId] = useState(null)
+  const deletingNpcIds = useRef(new Set())
+  const [deletingNpcId, setDeletingNpcId] = useState(null)
   const [panelW, setPanelW] = useState(380)
   const [dragging, setDragging] = useState(false)
   const mainRef = useRef(null)
@@ -62,13 +67,71 @@ export default function App() {
   const roomId = persist.enabled ? `mesa-${persist.mesaId}` : activity.roomId
   const log = useGameLog(roomId, activity.identity, persist)
   const party = useMembers(persist.enabled ? persist.mesaId : '', activity.identity)
-  const viewingPlayerId = sheetTarget || activity.identity?.id || ''
-  const sheet = useSheet(persist.enabled ? persist.mesaId : '', viewingPlayerId)
   const npcs = useNpcs(persist.enabled ? persist.mesaId : '')
   const backgroundUrl = useMesaBackground(persist.enabled ? persist.mesaId : '')
-  const viewingOtherPlayer = viewingPlayerId !== activity.identity?.id
-    && party.members.some((m) => m.player_id === viewingPlayerId)
-  const sheetReadOnly = Boolean(persist.enabled && party.isDm && viewingOtherPlayer)
+  const currentMesaId = persist.enabled ? persist.mesaId : ''
+  const rosterCurrent = isRosterReadyForMesa(party, currentMesaId)
+  const npcRosterCurrent = isRosterReadyForMesa(npcs, currentMesaId)
+  const memberIds = rosterCurrent ? party.members.map((member) => member.player_id) : []
+  const npcIds = npcRosterCurrent ? npcs.npcs.map((npc) => npc.player_id) : []
+  const activeSheetTarget = Boolean(sheetTarget && canViewSheetTarget({
+    mesaId: currentMesaId,
+    targetMesaId: sheetTargetMesaId,
+    isDm: rosterCurrent && party.isDm,
+    memberIds,
+    npcIds: npcIds.includes(sheetTarget) || npcs.contains(sheetTarget)
+      ? [...npcIds, sheetTarget]
+      : npcIds,
+  }, sheetTarget))
+    ? sheetTarget
+    : null
+  const viewingPlayerId = activeSheetTarget || activity.identity?.id || ''
+  const authorizeSheetEdit = (targetMesaId, targetPlayerId) => {
+    const npcIsCurrent = npcs.contains(targetPlayerId)
+    const authorizedNpcIds = npcIds.includes(targetPlayerId) || npcIsCurrent
+      ? [...npcIds, targetPlayerId]
+      : npcIds
+    return canEditSheetTarget({
+      mesaId: currentMesaId,
+      targetMesaId,
+      identityId: activity.identity?.id,
+      isDm: rosterCurrent && party.isDm,
+      memberIds,
+      npcIds: authorizedNpcIds,
+    }, targetPlayerId)
+      && (!String(targetPlayerId).startsWith('npc-') || npcIsCurrent)
+  }
+  const sheetCanEdit = authorizeSheetEdit(persist.enabled ? persist.mesaId : '', viewingPlayerId)
+  const sheet = useSheet(
+    persist.enabled ? persist.mesaId : '',
+    viewingPlayerId,
+    authorizeSheetEdit,
+  )
+  const sheetReadOnly = Boolean(persist.enabled && (!sheetCanEdit || deletingNpcId === viewingPlayerId))
+
+  const selectSheetTarget = (playerId) => {
+    if (!playerId) {
+      setSheetTarget(null)
+      setSheetTargetMesaId(null)
+      return
+    }
+    if (!persist.enabled || !rosterCurrent || !party.isDm || deletingNpcIds.current.has(playerId)) return
+    const isOtherMember = memberIds.includes(playerId) && playerId !== activity.identity?.id
+    const isCurrentNpc = npcs.contains(playerId)
+    if (!isOtherMember && !isCurrentNpc) return
+    setSheetTarget(playerId)
+    setSheetTargetMesaId(persist.mesaId)
+  }
+
+  useEffect(() => {
+    if (!sheetTarget) return
+    const mesaChanged = !persist.enabled || sheetTargetMesaId !== persist.mesaId
+    const accessRevoked = rosterCurrent && !activeSheetTarget
+    if (mesaChanged || accessRevoked) {
+      setSheetTarget(null)
+      setSheetTargetMesaId(null)
+    }
+  }, [sheetTarget, sheetTargetMesaId, persist.enabled, persist.mesaId, rosterCurrent, activeSheetTarget])
 
   const players = useMemo(
     () => activity.mergePlayers(log.remotes),
@@ -176,9 +239,10 @@ export default function App() {
   }
 
   const createNpc = async () => {
+    if (!persist.enabled || !rosterCurrent || !party.isDm || !npcRosterCurrent) return
     try {
       const id = await npcs.create()
-      setSheetTarget(id)
+      selectSheetTarget(id)
       setTab('ficha')
       flash('NPC creado')
     } catch (err) {
@@ -187,13 +251,29 @@ export default function App() {
   }
 
   const deleteNpc = async (id) => {
+    if (!persist.enabled || !rosterCurrent || !party.isDm || !npcRosterCurrent || !npcs.contains(id)) return
     if (!window.confirm('¿Eliminar la ficha de este NPC?')) return
+    deletingNpcIds.current.add(id)
+    sheet.lockEdits(persist.mesaId, id, true)
+    setDeletingNpcId(id)
     try {
-      await npcs.remove(id)
-      if (sheetTarget === id) setSheetTarget(null)
+      const deleted = await deleteNpcAfterSaving({
+        flushPending: () => sheet.flushPending(persist.mesaId, id),
+        cancelPending: () => sheet.cancelPending(persist.mesaId, id),
+        remove: () => npcs.remove(id),
+      })
+      if (!deleted) {
+        flash('No se eliminó el NPC: no se pudo guardar el borrador. La ficha sigue disponible.')
+        return
+      }
+      if (sheetTarget === id) selectSheetTarget(null)
       flash('NPC eliminado')
     } catch (err) {
-      flash(err.message || 'No se pudo eliminar el NPC')
+      flash(`No se eliminó el NPC; el borrador quedó guardado. ${err.message || 'Revisa la conexión e inténtalo de nuevo.'}`)
+    } finally {
+      deletingNpcIds.current.delete(id)
+      sheet.lockEdits(persist.mesaId, id, false)
+      setDeletingNpcId(null)
     }
   }
 
@@ -447,9 +527,15 @@ export default function App() {
           }}
           sheet={sheet.data}
           sheetStatus={sheet.status}
+          sheetReady={sheet.ready}
+          sheetError={sheet.error}
+          onRetrySheet={sheet.retryLoad}
+          onRetrySheetSave={sheet.retrySave}
           sheetReadOnly={sheetReadOnly}
           sheetTarget={sheetTarget}
-          onSheetTarget={setSheetTarget}
+          onSheetTarget={selectSheetTarget}
+          sheetTargetReady={rosterCurrent}
+          npcTargetReady={npcRosterCurrent}
           onSheetChange={sheet.update}
           onCompose={composeSheetRoll}
           diceText={diceText}

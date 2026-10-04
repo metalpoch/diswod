@@ -1391,3 +1391,146 @@ code {
   .sheet-side-grid.two { grid-template-columns: 1fr; }
   .sheet-reserve { grid-template-columns: 1fr; }
 }
+
+/* Hoja V20: lectura por bloques y controles utilizables en paneles estrechos. */
+.sheet-frame { min-height: 0; }
+.sheet-load-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 16px;
+  padding: 18px;
+  border: 1px solid #6b4d18;
+  border-left: 3px solid var(--gold);
+  background: linear-gradient(120deg, #1c0b0b, #100606);
+  color: var(--ink);
+}
+.sheet-load-state strong { color: var(--gold-soft); font-family: Cinzel, serif; letter-spacing: .06em; }
+.sheet-load-state p { margin: 5px 0 10px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.sheet-load-state.is-error { border-color: #7a2a24; border-left-color: #d9695d; }
+.sheet-load-state.is-error strong { color: #f09a8f; }
+.sheet-state-mark {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  color: var(--gold);
+  font: 700 17px "Share Tech Mono", monospace;
+}
+.sheet-frame[aria-busy="true"] .sheet-state-mark { animation: sheet-pulse 1.2s ease-in-out infinite; }
+@keyframes sheet-pulse { 50% { opacity: .35; } }
+
+.sheet-paper {
+  container-type: inline-size;
+  scroll-behavior: smooth;
+  scrollbar-color: #68471e #100606;
+  padding: clamp(10px, 2.2cqi, 20px);
+}
+.sheet-masthead { align-items: center; padding: 4px 0 14px; margin-bottom: 10px; }
+.sheet-masthead h1 { letter-spacing: .1em; line-height: 1.25; }
+.sheet-edition { letter-spacing: .14em; }
+.sheet-mast-side { max-width: 100%; }
+.sheet-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #0b0404;
+  white-space: nowrap;
+}
+.sheet-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.sheet-status.is-saving::before { background: var(--gold); box-shadow: 0 0 7px var(--gold); }
+.sheet-status.is-saved { color: #b5c99a; border-color: #465b35; }
+.sheet-status.is-saved::before { background: #a4c77b; }
+.sheet-status.is-error { color: #f09a8f; border-color: #7a2a24; }
+.sheet-status.is-error::before { background: #d9695d; }
+.sheet-retry-save { padding: 4px 8px; border: 1px solid #7a2a24; border-radius: 4px; color: #f09a8f; background: #1a0808; font-size: 11px; cursor: pointer; }
+.sheet-retry-save:hover, .sheet-retry-save:focus-visible { border-color: #d9695d; outline: none; }
+.sheet-nav {
+  position: sticky;
+  z-index: 3;
+  top: -1px;
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  background: #100707f2;
+  scrollbar-width: thin;
+}
+.sheet-nav a {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  text-decoration: none;
+}
+.sheet-nav a:hover, .sheet-nav a:focus-visible { border-color: var(--gold); color: var(--gold-soft); outline: none; }
+.sheet-rollbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #4b3416;
+  border-radius: 6px;
+  background: linear-gradient(110deg, #1b0b0b, #0d0606);
+}
+.sheet-roll-copy strong { color: var(--gold-soft); font: 600 12px Cinzel, serif; letter-spacing: .12em; text-transform: uppercase; }
+.sheet-hint { margin-top: 3px; line-height: 1.45; }
+.spec-toggle { min-height: 36px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 4px; white-space: nowrap; }
+.spec-toggle span { color: var(--muted); }
+.sheet-identity { scroll-margin-top: 48px; gap: 8px; }
+.sheet-id-col { border-radius: 4px; background: #100707; padding: 10px; }
+.sheet-field input, .list-row input, .virtue-select, .sheet-viewer select { color-scheme: dark; border-radius: 3px; }
+.sheet-field input[readonly], .list-row input[readonly] { color: #d4c7b6; background: #0e0707; }
+.sheet-section { scroll-margin-top: 54px; border-color: #59421d; border-radius: 5px; overflow: clip; box-shadow: 0 4px 16px #0002; }
+.sheet-section-head { padding: 9px 12px; }
+.sheet-section-head h3 { letter-spacing: .12em; }
+.sheet-section-body { padding: 12px; }
+.sheet-stat-col h4, .sheet-sub-col h4 { letter-spacing: .09em; }
+.stat-row { min-height: 30px; gap: 7px; }
+.stat-name { min-height: 30px; font-size: 13px; }
+.stat-name:hover:not(:disabled) { color: var(--gold-soft); }
+.stat-name.is-selected { color: var(--gold-soft); text-decoration: none; }
+.stat-name.is-selected::before { content: "• "; color: var(--gold); }
+.stat-toggle, .stat-roll { width: 28px; height: 28px; border-radius: 4px; cursor: pointer; }
+.stat-toggle:not(:disabled):hover, .stat-roll:not(:disabled):hover { color: var(--gold-soft); background: #3a1d12; }
+.stat-toggle.is-selected { background: #3a1d12; }
+.stat-dot { width: 14px; height: 14px; cursor: pointer; }
+.stat-dot:focus-visible, .stat-name:focus-visible, .stat-toggle:focus-visible, .stat-roll:focus-visible, .health:focus-visible { outline: 2px solid var(--gold-soft); outline-offset: 2px; }
+.health { min-height: 38px; border-radius: 4px; }
+.health:hover:not(:disabled) { background: #1b0b0b; }
+.sheet-footer { align-items: end; }
+.sheet-budget { max-width: 100%; line-height: 1.5; }
+.sheet-viewer { padding: 10px 12px; background: #100707; }
+.sheet-viewer select { min-width: 150px; max-width: min(250px, 60vw); }
+.npc-bar { width: 100%; padding-top: 5px; border-top: 1px solid #2a1610; }
+.npc-bar .ghost { min-height: 28px; }
+.sheet-viewer .ghost.danger { min-height: 28px; }
+
+@container (min-width: 680px) {
+  .sheet-tri { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+}
+@container (min-width: 920px) {
+  .sheet-body { grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr); gap: 14px; }
+  .sheet-state { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
+  .sheet-reserve { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .sheet-rollbar { grid-template-columns: 1fr; }
+  .spec-toggle { justify-self: start; }
+  .sheet-masthead h1 { font-size: 16px; }
+  .sheet-mast-side { justify-content: flex-start; }
+  .sheet-section-body { padding: 9px; }
+  .sheet-footer-item { width: min(100%, 200px); }
+  .sheet-footer .sheet-budget { margin: 0; }
+  .sheet-load-state { margin: 10px; padding: 14px; }
+}

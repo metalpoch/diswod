@@ -223,9 +223,7 @@ export function subscribeMembers(mesaId, onChange) {
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'mesa_members', filter: `mesa_id=eq.${mesaId}` },
-      () => {
-        listMembers(mesaId).then(onChange).catch(() => {})
-      },
+      () => onChange(),
     )
     .subscribe()
   return () => {
