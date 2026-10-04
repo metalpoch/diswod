@@ -12,6 +12,7 @@ const AVATAR = (id, avatar) =>
     : null
 
 const CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || ''
+const DISCORD_OAUTH_SCOPES = ['identify']
 
 export function isLikelyEmbedded() {
   try {
@@ -145,7 +146,7 @@ export async function authenticateDiscordUser(sdk, clientId) {
       client_id: clientId,
       response_type: 'code',
       prompt: 'none',
-      scope: ['identify', 'guilds', 'rpc.activities.write'],
+      scope: DISCORD_OAUTH_SCOPES,
     }))
   } catch {
     throw categorizedStartupError('oauth_authorize')
