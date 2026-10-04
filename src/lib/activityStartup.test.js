@@ -6,6 +6,7 @@ import {
   sdkUnavailableCategory,
   startupFailureCategory,
   startupSafeMessage,
+  waitForSdkReady,
 } from './activityStartup'
 import { activityStartupPolicy, establishAuthenticatedIdentity } from './activityIdentity'
 
@@ -50,6 +51,66 @@ describe('safe Activity startup diagnostics', () => {
     expect(message).not.toContain('https://')
     expect(message).not.toContain('private-user-id')
     expect(startupSafeMessage('post_connect_room_url')).not.toContain(sensitive)
+  })
+
+  it('allows the SDK handshake to finish within the 30 second limit', async () => {
+    vi.useFakeTimers()
+    try {
+      let resolveReady
+      const ready = vi.fn(() => new Promise((resolve) => { resolveReady = resolve }))
+      const waiting = waitForSdkReady(ready)
+
+      await vi.advanceTimersByTimeAsync(12_000)
+      resolveReady()
+      await expect(waiting).resolves.toBe(true)
+
+      expect(ready).toHaveBeenCalledOnce()
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('fails safely when the SDK handshake exceeds the 30 second limit', async () => {
+    vi.useFakeTimers()
+    try {
+      const waiting = waitForSdkReady(() => new Promise(() => {}))
+      const result = expect(waiting).rejects.toMatchObject({ startupCategory: 'sdk_ready_timeout' })
+      await vi.advanceTimersByTimeAsync(30_000)
+      await result
+
+      const message = startupSafeMessage('sdk_ready_timeout')
+      expect(message).toContain('handshake')
+      expect(message).toContain('Reintenta')
+      expect(message).not.toMatch(/client.?id|mapping|token|identity/i)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels an SDK handshake, removes its abort listener, and ignores late readiness', async () => {
+    vi.useFakeTimers()
+    const controller = new AbortController()
+    const addListener = vi.spyOn(controller.signal, 'addEventListener')
+    const removeListener = vi.spyOn(controller.signal, 'removeEventListener')
+    let resolveReady
+    try {
+      const waiting = waitForSdkReady(() => new Promise((resolve) => { resolveReady = resolve }), {
+        signal: controller.signal,
+      })
+      await Promise.resolve()
+      controller.abort()
+      await expect(waiting).resolves.toBe(false)
+      resolveReady()
+      await Promise.resolve()
+
+      expect(addListener).toHaveBeenCalledWith('abort', expect.any(Function), { once: true })
+      expect(removeListener).toHaveBeenCalledWith('abort', addListener.mock.calls[0][1])
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('times out a pending SDK import, classifies it safely, and clears its timer', async () => {

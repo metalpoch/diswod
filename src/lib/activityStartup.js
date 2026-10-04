@@ -3,7 +3,7 @@ const STARTUP_MESSAGES = {
   sdk_import: 'No se pudo cargar el SDK de Discord. Revisa el Client ID y la configuración de la Activity.',
   sdk_import_timeout: 'La carga del SDK de Discord tardó demasiado. Reintenta o vuelve a abrir la Activity.',
   sdk_initialize: 'No se pudo inicializar Discord. Revisa el Client ID de la Activity.',
-  sdk_ready_timeout: 'Discord tardó demasiado en iniciar. Revisa el Client ID y los URL Mappings de la Activity.',
+  sdk_ready_timeout: 'Discord no respondió al handshake de inicio a tiempo. Reintenta la conexión.',
   sdk_ready_rejected: 'Discord rechazó el inicio. Revisa el Client ID y los URL Mappings de la Activity.',
   oauth_authorize: 'Discord no pudo autorizar la cuenta; elige un usuario de la Activity para continuar.',
   discord_token: 'No se pudo verificar la cuenta con Discord; elige un usuario de la Activity para continuar.',
@@ -71,6 +71,32 @@ export async function loadSdkModule(load, { timeoutMs = 8000, signal } = {}) {
       }),
     ])
     return outcome
+  } finally {
+    clearTimeout(timer)
+    if (signal && onAbort) signal.removeEventListener('abort', onAbort)
+  }
+}
+
+export async function waitForSdkReady(ready, { timeoutMs = 30_000, signal } = {}) {
+  if (signal?.aborted) return false
+
+  let timer
+  let onAbort
+  try {
+    const outcome = await Promise.race([
+      Promise.resolve()
+        .then(() => ready())
+        .then(() => ({ ready: true }))
+        .catch(() => { throw categorizedStartupError('sdk_ready_rejected') }),
+      new Promise((resolve, reject) => {
+        timer = setTimeout(() => reject(categorizedStartupError('sdk_ready_timeout')), timeoutMs)
+        if (signal) {
+          onAbort = () => resolve({ cancelled: true })
+          signal.addEventListener('abort', onAbort, { once: true })
+        }
+      }),
+    ])
+    return !signal?.aborted && outcome.ready === true
   } finally {
     clearTimeout(timer)
     if (signal && onAbort) signal.removeEventListener('abort', onAbort)

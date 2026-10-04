@@ -3,6 +3,7 @@ import {
   categorizedStartupError,
   loadSdkModule,
   startupFailureCategory,
+  waitForSdkReady,
 } from './activityStartup'
 
 const AVATAR = (id, avatar) =>
@@ -189,20 +190,8 @@ export async function connectDiscord(clientId = CLIENT_ID, { signal } = {}) {
   } catch {
     throw categorizedStartupError('sdk_initialize')
   }
-  let readyTimer
-  try {
-    await Promise.race([
-      Promise.resolve().then(() => sdk.ready()).catch(() => {
-        throw categorizedStartupError('sdk_ready_rejected')
-      }),
-      new Promise((_, reject) => {
-        readyTimer = setTimeout(() => reject(categorizedStartupError('sdk_ready_timeout')), 8000)
-      }),
-    ])
-  } finally {
-    clearTimeout(readyTimer)
-  }
-  if (signal?.aborted) return { sdk: null, user: null, cancelled: true }
+  const ready = await waitForSdkReady(() => sdk.ready(), { signal })
+  if (!ready || signal?.aborted) return { sdk: null, user: null, cancelled: true }
   let user = null
   let accessToken = ''
   let authFailureCategory = ''
