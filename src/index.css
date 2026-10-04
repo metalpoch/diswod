@@ -527,14 +527,17 @@ code {
 
 .chronicle {
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-panel);
   overflow: hidden;
+  overscroll-behavior: none;
   transition: opacity 0.3s ease;
 }
 .chronicle-tabs {
   display: flex;
+  flex: 0 0 auto;
   border-bottom: 1px solid var(--line);
 }
 .chronicle-tabs button {
@@ -954,6 +957,7 @@ code {
 
 .sheet-viewer {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: row;
   gap: 10px;
   align-items: center;
@@ -977,9 +981,15 @@ code {
 .sheet-viewer select:focus { border-color: var(--gold); }
 .npc-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1 1 260px;
+  min-width: 0;
+  flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-color: #68471e #100606;
+  scrollbar-width: thin;
 }
 .npc-bar .npc-label {
   font-size: 11px;
@@ -994,6 +1004,7 @@ code {
 .sheet { overflow: hidden; }
 .sheet-rollbar {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -1002,10 +1013,13 @@ code {
 .sheet-quick-rolls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  grid-column: 1 / -1;
+  min-width: 0;
   gap: 10px;
 }
 .quick-roll-card {
   display: grid;
+  min-width: 0;
   gap: 8px;
   align-content: start;
   padding: 9px;
@@ -1449,8 +1463,15 @@ code {
   .sheet-reserve { grid-template-columns: 1fr; }
 }
 
-/* Hoja V20: lectura por bloques y controles utilizables en paneles estrechos. */
-.sheet-frame { min-height: 0; }
+/* Hoja V20: un único scrollport vertical dentro del panel de crónica. */
+.sheet-frame {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
 .sheet-load-state {
   display: flex;
   align-items: flex-start;
@@ -1481,8 +1502,16 @@ code {
 @keyframes sheet-pulse { 50% { opacity: .35; } }
 
 .sheet-paper {
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   container-type: inline-size;
   scroll-behavior: smooth;
+  scroll-padding-top: 48px;
   scrollbar-color: #68471e #100606;
   padding: clamp(10px, 2.2cqi, 20px);
 }
@@ -1567,11 +1596,37 @@ code {
 .health:hover:not(:disabled) { background: #1b0b0b; }
 .sheet-footer { align-items: end; }
 .sheet-budget { max-width: 100%; line-height: 1.5; }
-.sheet-viewer { padding: 10px 12px; background: #100707; }
+.sheet-viewer { gap: 6px; padding: 6px 10px; background: #100707; }
 .sheet-viewer select { min-width: 150px; max-width: min(250px, 60vw); }
-.npc-bar { width: 100%; padding-top: 5px; border-top: 1px solid #2a1610; }
-.npc-bar .ghost { min-height: 28px; }
+.npc-bar { width: auto; max-width: 100%; padding: 3px 2px 6px; border-top: 1px solid #2a1610; }
+.npc-bar .ghost { flex: 0 0 auto; min-height: 28px; white-space: nowrap; }
 .sheet-viewer .ghost.danger { min-height: 28px; }
+
+@media (max-height: 600px) {
+  .sheet-viewer { gap: 4px; padding: 4px 8px; }
+  .npc-bar { padding-top: 2px; padding-bottom: 4px; }
+}
+
+/* Responsive al ancho real de la ficha, no al viewport del Activity. */
+@container (max-width: 520px) {
+  .sheet-rollbar {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .sheet-roll-copy,
+  .spec-toggle,
+  .sheet-quick-rolls,
+  .quick-roll-card { min-width: 0; }
+  .spec-toggle {
+    justify-self: stretch;
+    white-space: normal;
+  }
+  .sheet-quick-rolls,
+  .quick-roll-fields { grid-template-columns: minmax(0, 1fr); }
+  .quick-roll-card > .ghost,
+  .quick-discipline-config > .ghost { width: 100%; }
+  .quick-roll-preview { overflow-wrap: anywhere; }
+}
 
 @container (min-width: 680px) {
   .sheet-tri { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
@@ -1582,8 +1637,6 @@ code {
   .sheet-reserve { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 520px) {
-  .sheet-rollbar { grid-template-columns: 1fr; }
-  .spec-toggle { justify-self: start; }
   .sheet-masthead h1 { font-size: 16px; }
   .sheet-mast-side { justify-content: flex-start; }
   .sheet-section-body { padding: 9px; }
