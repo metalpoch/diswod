@@ -1,22 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { buildFrenzyUpdate, normalizeMusicSetting, normalizeTrackList, sameSceneContext } from '../lib/scene'
+import {
+  buildFrenzyUpdate,
+  normalizeMusicSetting,
+  normalizeTrackList,
+  sameSceneContext,
+  sceneControlAccessMessage,
+  sceneControlErrorDetails,
+} from '../lib/scene'
 import { supabase } from '../lib/supabase'
 
 const DEFAULT_MUSIC = { mode: 'auto', trackId: null, stale: false }
 
-export function useScene(mesaId, oauthAccessToken, isDm, identityId = '') {
+export function useScene(mesaId, oauthAccessToken, identityId = '', identitySource = '', embedded = false) {
   const [tracks, setTracks] = useState([])
   const [musicRow, setMusicRow] = useState(null)
   const [conditions, setConditions] = useState([])
   const [readyMesaId, setReadyMesaId] = useState('')
   const [error, setError] = useState('')
   const [errorMesaId, setErrorMesaId] = useState('')
+  const [controlError, setControlError] = useState('')
+  const [controlRetryable, setControlRetryable] = useState(false)
   const [revision, setRevision] = useState(0)
   const [retryRevision, setRetryRevision] = useState(0)
+  const retryControlRef = useRef(null)
   const contextRef = useRef(null)
   const abortersRef = useRef(new Set())
   const generationRef = useRef(0)
-  const contextSignature = `${mesaId || ''}|${identityId || ''}|${oauthAccessToken || ''}|${Boolean(isDm)}`
+  const contextSignature = `${mesaId || ''}|${identityId || ''}|${oauthAccessToken || ''}|${identitySource || ''}|${Boolean(embedded)}`
   if (!contextRef.current || contextRef.current.signature !== contextSignature) {
     generationRef.current += 1
     contextRef.current = {
@@ -24,11 +34,18 @@ export function useScene(mesaId, oauthAccessToken, isDm, identityId = '') {
       mesaId: mesaId || '',
       identityId: identityId || '',
       token: oauthAccessToken || '',
-      isDm: Boolean(isDm),
+      identitySource: identitySource || '',
+      embedded: Boolean(embedded),
       generation: generationRef.current,
     }
   }
   const renderContext = contextRef.current
+
+  useEffect(() => {
+    setControlError('')
+    setControlRetryable(false)
+    retryControlRef.current = null
+  }, [contextSignature])
 
   useEffect(() => {
     for (const controller of abortersRef.current) controller.abort()
@@ -96,12 +113,36 @@ export function useScene(mesaId, oauthAccessToken, isDm, identityId = '') {
 
   const callControl = useCallback(async (body) => {
     const captured = renderContext
-    if (!captured?.mesaId || !captured.isDm || !captured.identityId || !captured.token) {
-      throw new Error('Solo un Narrador verificado puede controlar la escena.')
+    setControlError('')
+    setControlRetryable(false)
+    retryControlRef.current = null
+    const fail = (details) => {
+      setControlError(details.message)
+      setControlRetryable(details.retryable)
+      if (details.retryable) retryControlRef.current = () => callControl(body)
+      throw new Error(details.message)
+    }
+    if (!captured?.mesaId) {
+      fail({ message: 'Selecciona una mesa guardada para controlar la Escena.', retryable: false })
     }
     const isCurrent = () => sameSceneContext(captured, contextRef.current)
     if (!isCurrent()) return false
-    if (!supabase) throw new Error('Supabase no está disponible.')
+    const accessMessage = sceneControlAccessMessage({
+      identitySource: captured.identitySource,
+      embedded: captured.embedded,
+      token: captured.token,
+    })
+    if (accessMessage) {
+      fail({ message: accessMessage, retryable: false })
+    }
+    if (!supabase) {
+      fail(sceneControlErrorDetails({
+        identitySource: captured.identitySource,
+        embedded: captured.embedded,
+        token: captured.token,
+        errorCode: 'service_unavailable',
+      }))
+    }
     const controller = new AbortController()
     abortersRef.current.add(controller)
     let data
@@ -114,15 +155,42 @@ export function useScene(mesaId, oauthAccessToken, isDm, identityId = '') {
       }))
     } catch (requestError) {
       if (!isCurrent()) return false
-      throw requestError
+      const networkError = ['TypeError', 'NetworkError'].includes(requestError?.name)
+      fail(sceneControlErrorDetails({
+        identitySource: captured.identitySource,
+        embedded: captured.embedded,
+        token: captured.token,
+        errorCode: networkError ? 'network_error' : 'function_error',
+        networkError,
+      }))
     } finally {
       abortersRef.current.delete(controller)
     }
     if (!isCurrent()) return false
-    if (invokeError) throw new Error(invokeError.message || 'No se pudo guardar el estado de escena.')
-    if (data?.error) throw new Error(data.error === 'dm_required'
-      ? 'Solo el Narrador puede cambiar la escena.'
-      : 'No se pudo guardar el estado de escena.')
+    let errorCode = data?.error || ''
+    if (invokeError && !errorCode) {
+      try {
+        const response = invokeError.context?.clone?.()
+        const payload = response ? await response.json() : null
+        errorCode = payload?.error || ''
+      } catch {
+        // Classify by HTTP status or known network errors when the body is unavailable.
+      }
+    }
+    if (!isCurrent()) return false
+    if (invokeError || errorCode) {
+      const details = sceneControlErrorDetails({
+        identitySource: captured.identitySource,
+        embedded: captured.embedded,
+        token: captured.token,
+        errorCode,
+        status: invokeError?.context?.status,
+        networkError: ['FunctionsFetchError', 'TypeError'].includes(invokeError?.name || invokeError?.constructor?.name),
+      })
+      fail(details)
+    }
+    setControlError('')
+    setControlRetryable(false)
     setRevision((value) => value + 1)
     return true
   }, [renderContext])
@@ -135,6 +203,14 @@ export function useScene(mesaId, oauthAccessToken, isDm, identityId = '') {
 
   const current = readyMesaId === mesaId
   const retry = useCallback(() => setRetryRevision((value) => value + 1), [])
+  const retryControl = useCallback(() => {
+    if (retryControlRef.current) retryControlRef.current().catch(() => {})
+  }, [])
+  const controlAccessMessage = sceneControlAccessMessage({
+    identitySource: renderContext.identitySource,
+    embedded: renderContext.embedded,
+    token: renderContext.token,
+  })
   return {
     tracks,
     music: current ? normalizeMusicSetting(musicRow, tracks) : mesaId
@@ -143,9 +219,13 @@ export function useScene(mesaId, oauthAccessToken, isDm, identityId = '') {
     conditions: current ? conditions : [],
     ready: current,
     error: error && (current || errorMesaId === mesaId) ? error : '',
-    isDm: Boolean(isDm),
+    controlError,
+    controlRetryable,
+    controlAccessMessage,
+    canControl: !controlAccessMessage,
     setMusic,
     setFrenzy,
     retry,
+    retryControl,
   }
 }

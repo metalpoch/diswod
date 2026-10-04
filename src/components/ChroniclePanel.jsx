@@ -153,6 +153,11 @@ export default function ChroniclePanel({
           ready={scene?.ready}
           error={scene?.error}
           onRetry={scene?.retry}
+          controlError={scene?.controlError}
+          controlRetryable={scene?.controlRetryable}
+          onRetryControl={scene?.retryControl}
+          controlAccessMessage={scene?.controlAccessMessage}
+          canControl={scene?.canControl}
           playbackError={musicPlayback?.playbackError}
           localFallback={musicPlayback?.localFallback}
           onRetryMusic={musicPlayback?.retryMusic}
@@ -160,6 +165,9 @@ export default function ChroniclePanel({
           isDm={isDm}
           onMusic={onSceneMusic}
           onFrenzy={onSceneFrenzy}
+          backgroundUrl={backgroundUrl}
+          onSetBackground={onSetBackground}
+          onClearBackground={onClearBackground}
         />
       ) : null}
       {persist && tab === 'mesa' ? (
@@ -173,9 +181,6 @@ export default function ChroniclePanel({
           onSetMuted={onSetMuted}
           onKick={onKick}
           onLeave={onLeave}
-          backgroundUrl={backgroundUrl}
-          onSetBackground={onSetBackground}
-          onClearBackground={onClearBackground}
         />
       ) : null}
     </aside>

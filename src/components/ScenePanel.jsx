@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { frenzyForPlayer } from '../lib/scene'
 
 function updateCaption(row, members) {
@@ -10,8 +11,9 @@ function updateCaption(row, members) {
   return `Último cambio: ${name} · ${new Intl.DateTimeFormat('es', { dateStyle: 'short', timeStyle: 'short' }).format(date)}`
 }
 
-export default function ScenePanel({ members, tracks, music, conditions, ready, error, onRetry, playbackError, localFallback, onRetryMusic, onUseAutomatic, isDm, onMusic, onFrenzy }) {
+export default function ScenePanel({ members, tracks, music, conditions, ready, error, onRetry, controlError, controlRetryable, onRetryControl, controlAccessMessage, canControl, playbackError, localFallback, onRetryMusic, onUseAutomatic, isDm, onMusic, onFrenzy, backgroundUrl, onSetBackground, onClearBackground }) {
   const selected = music.mode === 'off' ? 'off' : music.mode === 'track' ? `track:${music.trackId}` : 'auto'
+  const backgroundFileRef = useRef(null)
   return (
     <section className="scene-panel" aria-labelledby="scene-title">
       <header className="scene-header">
@@ -29,12 +31,19 @@ export default function ScenePanel({ members, tracks, music, conditions, ready, 
         </div>
       ) : null}
 
+      {controlError ? (
+        <div className="scene-error" role="alert">
+          <span>{controlError}</span>
+          {controlRetryable ? <button type="button" className="ghost" onClick={onRetryControl}>Volver a intentar</button> : null}
+        </div>
+      ) : null}
+
       <section className="scene-music" aria-labelledby="scene-music-title">
         <div className="scene-section-heading">
           <h3 id="scene-music-title">Música</h3>
           <span>{!ready ? 'Estado sin confirmar' : music.mode === 'off' ? 'Apagada' : music.mode === 'track' ? 'Pista elegida' : 'Lista automática'}</span>
         </div>
-        {isDm ? (
+        {canControl ? (
           <label className="scene-select-label">
             Selección para la mesa
             <select
@@ -69,7 +78,8 @@ export default function ScenePanel({ members, tracks, music, conditions, ready, 
           </div>
         ) : null}
         {!tracks.length ? <p className="scene-muted">No se pudo cargar la lista de audio.</p> : null}
-        {isDm ? <p className="scene-muted">El mute ♪ de cada jugador sigue siendo individual y local.</p> : null}
+        {controlAccessMessage ? <p className="scene-auth-hint" role="status">{controlAccessMessage}</p> : null}
+        {canControl ? <p className="scene-muted">El mute ♪ de cada jugador sigue siendo individual y local.</p> : null}
       </section>
 
       <section className="scene-conditions" aria-labelledby="scene-conditions-title">
@@ -95,7 +105,7 @@ export default function ScenePanel({ members, tracks, music, conditions, ready, 
                       <span className={active ? 'scene-status is-active' : 'scene-status'}>{active ? 'Frenesí / La Bestia' : 'Sin Frenesí'}</span>
                       {updateCaption(condition, members) ? <span className="scene-update-meta">{updateCaption(condition, members)}</span> : null}
                     </div>
-                    {isDm ? (
+                    {canControl ? (
                       <button
                         type="button"
                         className={active ? 'ghost scene-toggle is-on' : 'ghost scene-toggle'}
@@ -114,6 +124,34 @@ export default function ScenePanel({ members, tracks, music, conditions, ready, 
           </ul>
         ) : <p className="scene-muted">Aún no hay personajes en el roster de esta mesa.</p>}
       </section>
+
+      {isDm ? (
+        <section className="scene-background" aria-labelledby="scene-background-title">
+          <div className="scene-section-heading">
+            <h3 id="scene-background-title">Fondo de mesa</h3>
+          </div>
+          <p className="scene-help">Sube una imagen de ubicación para ambientar la mesa 3D.</p>
+          {backgroundUrl ? <img className="scene-background-preview" src={backgroundUrl} alt="Vista previa del fondo actual de la mesa" /> : null}
+          <div className="bg-actions">
+            <button type="button" className="ghost" onClick={() => backgroundFileRef.current?.click()}>
+              {backgroundUrl ? 'Cambiar fondo' : 'Subir fondo'}
+            </button>
+            {backgroundUrl ? <button type="button" className="ghost danger" onClick={onClearBackground}>Quitar fondo</button> : null}
+          </div>
+          <input
+            ref={backgroundFileRef}
+            type="file"
+            accept="image/*"
+            className="file-hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              event.target.value = ''
+              onSetBackground?.(file)
+            }}
+          />
+          <p className="scene-security-note">Nota de seguridad: el fondo todavía se guarda mediante un callback del cliente y RLS abierto. Mover este control a Escena no lo protege como Música/Frenesí, que verifican el Narrador en el servidor.</p>
+        </section>
+      ) : null}
     </section>
   )
 }

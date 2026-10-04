@@ -8,6 +8,16 @@ import {
   musicErrorTransition,
   normalizeMusicSetting,
   normalizeTrackList,
+  SCENE_CONTROL_AUTH_MESSAGE,
+  SCENE_CONTROL_DISCORD_AUTH_MESSAGE,
+  SCENE_CONTROL_DM_MESSAGE,
+  SCENE_CONTROL_LOCAL_MESSAGE,
+  SCENE_CONTROL_PARTICIPANT_MESSAGE,
+  SCENE_CONTROL_REJECTED_MESSAGE,
+  SCENE_CONTROL_RETRY_MESSAGE,
+  SCENE_CONTROL_TOKEN_MESSAGE,
+  sceneControlAccessMessage,
+  sceneControlErrorDetails,
   sameSceneContext,
   validMusicSelection,
 } from './scene'
@@ -54,10 +64,14 @@ describe('scene playback context', () => {
   })
 
   it('ignores asynchronous results from an obsolete table or identity context', () => {
-    const oldContext = { mesaId: 'mesa-a', identityId: 'dm-a', token: 'token', isDm: true, generation: 1 }
+    const oldContext = {
+      mesaId: 'mesa-a', identityId: 'dm-a', token: 'token',
+      identitySource: 'discord-auth', embedded: true, generation: 1,
+    }
     const newContext = { ...oldContext, mesaId: 'mesa-b', generation: 2 }
     expect(sameSceneContext(oldContext, newContext)).toBe(false)
     expect(sameSceneContext(oldContext, { ...oldContext })).toBe(true)
+    expect(sameSceneContext(oldContext, { ...oldContext, identitySource: 'participant' })).toBe(false)
   })
 })
 
@@ -88,6 +102,68 @@ describe('scene music selections', () => {
 })
 
 describe('scene control policy', () => {
+  const authenticated = { identitySource: 'discord-auth', embedded: true, token: 'oauth-token' }
+
+  it('shows distinct, actionable guidance for local, participant, and missing-token identities', () => {
+    const local = sceneControlAccessMessage({ identitySource: 'local', embedded: false, token: '' })
+    const participant = sceneControlAccessMessage({ identitySource: 'participant', embedded: true, token: '' })
+    const missingToken = sceneControlAccessMessage({ identitySource: 'discord-auth', embedded: true, token: '' })
+
+    expect(local).toBe(SCENE_CONTROL_LOCAL_MESSAGE)
+    expect(local).toContain('web de prueba')
+    expect(local).toContain('Activity dentro de Discord')
+    expect(local).toContain('cuenta verificada del Narrador')
+    expect(participant).toBe(SCENE_CONTROL_PARTICIPANT_MESSAGE)
+    expect(participant).toContain('no es una autenticación OAuth')
+    expect(participant).toContain('Vuelve a autenticarte')
+    expect(missingToken).toBe(SCENE_CONTROL_TOKEN_MESSAGE)
+    expect(missingToken).toContain('token de Discord')
+    expect(missingToken).toContain('sesión expiró')
+    expect(sceneControlAccessMessage({ identitySource: 'discord-auth', embedded: true, token: '  ' }))
+      .toBe(SCENE_CONTROL_TOKEN_MESSAGE)
+    expect(new Set([local, participant, missingToken]).size).toBe(3)
+    expect(sceneControlAccessMessage({ identitySource: 'discord-auth', embedded: true, token: 'oauth-token' })).toBe('')
+    expect(SCENE_CONTROL_AUTH_MESSAGE).toContain('cuenta del Narrador')
+  })
+
+  it('classifies DM claim and Discord authentication errors as non-retryable', () => {
+    const dmRequired = sceneControlErrorDetails({ ...authenticated, errorCode: 'dm_required' })
+    expect(dmRequired).toEqual({ message: SCENE_CONTROL_DM_MESSAGE, retryable: false })
+    expect(dmRequired.message).toContain('reclama/vincula el miembro Narrador')
+    expect(dmRequired.message).toContain('ID local')
+
+    for (const errorCode of ['discord_auth_required', 'discord_verification_failed']) {
+      const authError = sceneControlErrorDetails({ ...authenticated, errorCode, status: 401 })
+      expect(authError).toEqual({ message: SCENE_CONTROL_DISCORD_AUTH_MESSAGE, retryable: false })
+      expect(authError.message).toContain('reautentícate')
+    }
+  })
+
+  it('marks only transient network, unavailable, 5xx, or database failures as retryable', () => {
+    expect(sceneControlErrorDetails({ ...authenticated, networkError: true }).retryable).toBe(true)
+    expect(sceneControlErrorDetails({ ...authenticated, errorCode: 'service_unavailable' }).retryable).toBe(true)
+    expect(sceneControlErrorDetails({ ...authenticated, errorCode: 'scene_service_unavailable' }).retryable).toBe(true)
+    expect(sceneControlErrorDetails({ ...authenticated, errorCode: 'backend_failure' }).retryable).toBe(true)
+    expect(sceneControlErrorDetails({ ...authenticated, errorCode: 'database_error' }).retryable).toBe(true)
+    expect(sceneControlErrorDetails({ ...authenticated, status: 503 }).retryable).toBe(true)
+    expect(sceneControlErrorDetails({ ...authenticated, status: 429 }).retryable).toBe(true)
+    expect(sceneControlErrorDetails({ ...authenticated, errorCode: 'unknown_error', status: 500 }).retryable).toBe(true)
+
+    for (const input of [
+      { errorCode: 'dm_required' },
+      { errorCode: 'discord_auth_required' },
+      { errorCode: 'invalid_request', status: 400 },
+      { errorCode: 'invalid_target', status: 403 },
+      { errorCode: 'unknown_error', status: 400 },
+    ]) {
+      expect(sceneControlErrorDetails({ ...authenticated, ...input }).retryable).toBe(false)
+    }
+    expect(sceneControlErrorDetails({ ...authenticated, errorCode: 'invalid_request' }).message)
+      .toBe(SCENE_CONTROL_REJECTED_MESSAGE)
+    expect(sceneControlErrorDetails({ ...authenticated, errorCode: 'database_error' }).message)
+      .toBe(SCENE_CONTROL_RETRY_MESSAGE)
+  })
+
   it('recognizes a direct DM or a DM resolved through a legacy identity link', () => {
     expect(resolveDmActor({ discordUserId: 'discord-dm', mesaId, directMember: { player_id: 'discord-dm', role: 'dm' } }))
       .toEqual({ authorized: true, playerId: 'discord-dm', via: 'direct' })

@@ -88,7 +88,7 @@ export default function App() {
   const npcs = useNpcs(persist.enabled ? persist.mesaId : '')
   const backgroundUrl = useMesaBackground(persist.enabled ? persist.mesaId : '')
   const currentMesaId = persist.enabled ? persist.mesaId : ''
-  const scene = useScene(currentMesaId, activity.oauthAccessToken, party.isDm, effectiveId)
+  const scene = useScene(currentMesaId, activity.oauthAccessToken, effectiveId, activity.identity?.source, activity.embedded)
   const rosterCurrent = isRosterReadyForMesa(party, currentMesaId)
   const npcRosterCurrent = isRosterReadyForMesa(npcs, currentMesaId)
   const memberIds = rosterCurrent ? party.members.map((member) => member.player_id) : []
@@ -658,16 +658,16 @@ export default function App() {
             try {
               const applied = await scene.setMusic(mode, trackId)
               if (applied) flash('Música de escena actualizada')
-            } catch (err) {
-              flash(err.message || 'No se pudo cambiar la música')
+            } catch {
+              // The specific error and retry action are shown in ScenePanel.
             }
           }}
           onSceneFrenzy={async (playerId, active) => {
             try {
               const applied = await scene.setFrenzy(playerId, active)
               if (applied) flash(active ? 'Frenesí activado' : 'Frenesí quitado')
-            } catch (err) {
-              flash(err.message || 'No se pudo guardar el estado narrativo')
+            } catch {
+              // The specific error and retry action are shown in ScenePanel.
             }
           }}
         />
