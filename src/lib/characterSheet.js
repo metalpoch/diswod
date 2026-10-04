@@ -1,3 +1,5 @@
+import { isValidHealth } from './healthTrack'
+
 export const ATRIBUTOS = {
   fisicos: ['Fuerza', 'Destreza', 'Resistencia'],
   sociales: ['Carisma', 'Manipulación', 'Apariencia'],
@@ -139,6 +141,9 @@ export function normalizeSheet(raw) {
   const fv = raw.fuerzaVoluntad || {}
   const sangre = raw.sangre || {}
   const xp = raw.experiencia || {}
+  const health = Object.prototype.hasOwnProperty.call(raw, 'salud')
+    ? (isValidHealth(raw.salud) ? [...raw.salud] : raw.salud)
+    : base.salud
 
   return {
     ...base,
@@ -174,9 +179,7 @@ export function normalizeSheet(raw) {
       actual: Number.isFinite(Number(sangre.actual)) ? Number(sangre.actual) : base.sangre.actual,
       porTurno: Number.isFinite(Number(sangre.porTurno)) ? Number(sangre.porTurno) : base.sangre.porTurno,
     },
-    salud: Array.isArray(raw.salud) && raw.salud.length === HEALTH_LEVELS.length
-      ? raw.salud.map((n) => Math.max(0, Math.min(3, Number(n) || 0)))
-      : base.salud,
+    salud: health,
     experiencia: {
       total: Number.isFinite(Number(xp.total)) ? Number(xp.total) : 0,
       gastada: Number.isFinite(Number(xp.gastada)) ? Number(xp.gastada) : 0,

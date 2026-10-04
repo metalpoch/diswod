@@ -1,4 +1,5 @@
 import { DISCIPLINAS } from './sheetOptions'
+import { summarizeHealth } from './healthTrack'
 
 const validDisciplineNames = new Map(DISCIPLINAS.map((name) => [name.toLocaleLowerCase(), name]))
 
@@ -50,19 +51,25 @@ export function getOwnedDisciplines(sheet) {
   })
 }
 
-export function getInitiativeBreakdown(sheet, { woundPenalty = 0, unspentCelerity = 0 } = {}) {
+export function getInitiativeBreakdown(sheet, { unspentCelerity = 0 } = {}) {
   const dexterity = statValue(sheet?.atributos?.fisicos?.Destreza)
   const wits = statValue(sheet?.atributos?.mentales?.Astucia)
   const celerity = getOwnedDisciplines(sheet).find((discipline) => discipline.name === 'Celeridad')
   const celerityLevel = celerity?.level || 0
-  const wounds = Math.trunc(clamp(woundPenalty, 0, 5))
+  const health = summarizeHealth(sheet?.salud)
+  const valid = health.valid && !health.incapacitated
+  const wounds = valid ? health.penalty : null
   const extraCelerity = Math.trunc(clamp(unspentCelerity, 0, celerityLevel))
-  const modifier = dexterity + wits - wounds + extraCelerity
+  const modifier = valid ? dexterity + wits - wounds + extraCelerity : null
 
   return {
+    valid,
     dexterity,
     wits,
     woundPenalty: wounds,
+    healthValid: health.valid,
+    healthIrregular: health.irregular,
+    incapacitated: health.incapacitated,
     celerityLevel,
     unspentCelerity: extraCelerity,
     modifier,
@@ -81,8 +88,10 @@ export function buildInitiativeCommand(sheet, options = {}) {
   const description = `Iniciativa · ${characterName}${identityNote}`
   return {
     ...breakdown,
-    command: `/r 1d10${signedModifier(breakdown.modifier)} ${description}`,
-    preview: `1d10 + Destreza ${breakdown.dexterity} + Astucia ${breakdown.wits} − heridas ${breakdown.woundPenalty} + Celeridad ${breakdown.unspentCelerity} = 1d10${signedModifier(breakdown.modifier)}`,
+    command: breakdown.valid ? `/r 1d10${signedModifier(breakdown.modifier)} ${description}` : '',
+    preview: breakdown.valid
+      ? `1d10 + Destreza ${breakdown.dexterity} + Astucia ${breakdown.wits} − heridas ${breakdown.woundPenalty} + Celeridad ${breakdown.unspentCelerity} = 1d10${signedModifier(breakdown.modifier)}`
+      : '',
   }
 }
 

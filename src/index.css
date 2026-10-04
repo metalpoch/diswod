@@ -1287,28 +1287,47 @@ code {
   border-top: 1px solid var(--line);
 }
 
-.health-grid { display: grid; gap: 4px; }
+.health-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+.health-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.health-legend b { display: inline-grid; place-items: center; min-width: 22px; min-height: 22px; border: 1px solid var(--line); color: var(--gold-soft); font: 15px "Share Tech Mono", monospace; }
+.health-summary { margin: 0 0 8px; padding: 8px 10px; border-left: 3px solid var(--gold); background: #160909; color: var(--gold-soft); font-size: 13px; font-weight: 700; }
+.health-summary.is-incapacitated { border-left-color: var(--blood-hot); color: #f2aaa4; }
+.health-grid { display: grid; gap: 5px; }
 .health {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   background: transparent;
   border: 1px solid var(--line);
   color: var(--ink);
+  min-height: 42px;
   padding: 5px 8px;
   text-align: left;
   font-size: 13px;
 }
 .health:disabled { cursor: default; }
-.health-sym { font-family: "Share Tech Mono", monospace; color: var(--muted); font-size: 15px; }
+.health-point { display: inline-grid; place-items: center; width: 26px; height: 26px; border: 1px solid #4b3932; border-radius: 50%; color: var(--muted); font: 16px "Share Tech Mono", monospace; }
 .health-pen { color: var(--muted); font-family: "Share Tech Mono", monospace; font-size: 12px; }
 .health.is-1 { border-color: var(--gold); }
-.health.is-1 .health-sym { color: var(--gold-soft); }
+.health.is-1 .health-point { border-color: var(--gold); color: var(--gold-soft); }
 .health.is-2 { border-color: var(--blood-hot); }
-.health.is-2 .health-sym { color: var(--blood-hot); }
+.health.is-2 .health-point { border-color: var(--blood-hot); color: var(--blood-hot); }
 .health.is-3 { border-color: #7a1a5a; }
-.health.is-3 .health-sym { color: #d65ab0; }
+.health.is-3 .health-point { border-color: #7a1a5a; color: #d65ab0; }
+.health.is-effective { box-shadow: inset 3px 0 0 var(--gold-soft); background: #1c0e0b; }
+.health.is-effective .health-name { color: var(--gold-soft); font-weight: 700; }
+.health-controls { display: grid; gap: 8px; margin-top: 10px; }
+.health-damage-actions, .health-remove-action, .health-confirm-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.health-damage-actions .ghost, .health-remove-action .ghost, .health-confirm-actions .ghost { min-height: 38px; }
+.health-remove-action label { color: var(--muted); font-size: 12px; }
+.health-remove-action select { min-height: 38px; padding: 5px 8px; color: var(--ink); background: #0b0404; border: 1px solid var(--line); }
+.health-confirm { margin-top: 10px; padding: 10px; border: 1px solid var(--gold); background: #170b07; color: var(--ink); }
+.health-confirm strong { color: var(--gold-soft); }
+.health-confirm p { margin: 6px 0 10px; font-size: 12px; line-height: 1.45; }
+.health-alert, .health-feedback { margin: 8px 0 0; color: #efb184; font-size: 12px; line-height: 1.45; }
+.health-feedback { color: var(--gold-soft); }
+.health-note { margin: 8px 0 0; font-size: 11px; line-height: 1.45; }
 .sheet-budget { font-size: 12px; margin: 0; }
 
 .stat-block { display: grid; gap: 2px; }

@@ -5,7 +5,6 @@ import {
   ATRIBUTOS,
   HABILIDADES,
   HEALTH_LEVELS,
-  HEALTH_PENALTIES,
   POINT_BUDGET,
 } from '../lib/characterSheet'
 import {
@@ -31,8 +30,17 @@ import {
   getInitiativeBreakdown,
   getOwnedDisciplines,
 } from '../lib/quickRolls'
+import {
+  addHealthDamage,
+  formatHealthCounts,
+  HEALTH_MARKS,
+  isValidHealth,
+  removeHealthDamage,
+  summarizeHealth,
+} from '../lib/healthTrack'
 
 const HEALTH_SYMBOLS = ['', '/', 'X', '*']
+const HEALTH_LEVEL_PENALTIES = [0, 1, 1, 2, 2, 5, null]
 
 function DieIcon() {
   return (
@@ -270,8 +278,10 @@ export default function CharacterSheet({
 }) {
   const [pool, setPool] = useState([])
   const [specialty, setSpecialty] = useState(false)
-  const [woundPenalty, setWoundPenalty] = useState(0)
   const [unspentCelerity, setUnspentCelerity] = useState(0)
+  const [healthRemoveType, setHealthRemoveType] = useState('1')
+  const [healthFeedback, setHealthFeedback] = useState('')
+  const [pendingHealth, setPendingHealth] = useState(null)
   const [activeDiscipline, setActiveDiscipline] = useState('')
   const [disciplinePool, setDisciplinePool] = useState(1)
   const [disciplineDifficulty, setDisciplineDifficulty] = useState(6)
@@ -281,9 +291,12 @@ export default function CharacterSheet({
   const fileRef = useRef(null)
 
   const statValue = (s) => (s && typeof s === 'object' ? Number(s.v) || 0 : Number(s) || 0)
+  const health = summarizeHealth(sheet.salud)
+  const healthEditable = !readOnly && Boolean(onChange) && status !== 'Error al guardar' && status !== 'Guardado cancelado'
+  const healthArrayValid = isValidHealth(sheet.salud)
   const ownedDisciplines = getOwnedDisciplines(sheet)
   const celerityLevel = ownedDisciplines.find((discipline) => discipline.name === 'Celeridad')?.level || 0
-  const initiative = getInitiativeBreakdown(sheet, { woundPenalty, unspentCelerity })
+  const initiative = getInitiativeBreakdown(sheet, { unspentCelerity })
   const selectedDiscipline = ownedDisciplines.find((discipline) => discipline.name === activeDiscipline)
 
   const valueOf = (id) => {
@@ -378,13 +391,54 @@ export default function CharacterSheet({
   }
 
   const prepareInitiative = () => {
+    if (!initiative.valid) return
     const { command } = buildInitiativeCommand(sheet, {
-      woundPenalty,
       unspentCelerity,
       targetName: sheet.header.nombre,
       isOwn,
     })
-    onCompose?.({ command })
+    if (command) onCompose?.({ command })
+  }
+
+  const applyHealthResult = (result, successMessage) => {
+    if (!result.ok) {
+      setHealthFeedback(result.reason)
+      return
+    }
+    onChange?.({ ...sheet, salud: result.health })
+    setHealthFeedback(successMessage)
+    setPendingHealth(null)
+  }
+
+  const requestHealthChange = (action, mark) => {
+    if (!healthEditable) return
+    setHealthFeedback('')
+    const result = action === 'add'
+      ? addHealthDamage(sheet.salud, mark)
+      : removeHealthDamage(sheet.salud, mark)
+    if (result.requiresConfirmation) {
+      setPendingHealth({ action, mark, ...result })
+      return
+    }
+    applyHealthResult(result, action === 'add' ? `Añadida 1 marca ${HEALTH_MARKS[mark].name.toLowerCase()}.` : `Quitada 1 marca ${HEALTH_MARKS[mark].name.toLowerCase()}.`)
+  }
+
+  const confirmHealthChange = () => {
+    if (!pendingHealth || !healthEditable) return
+    const { action, mark } = pendingHealth
+    const result = action === 'add'
+      ? addHealthDamage(sheet.salud, mark, { confirmed: true })
+      : removeHealthDamage(sheet.salud, mark, { confirmed: true })
+    applyHealthResult(result, action === 'add' ? `Añadida 1 marca ${HEALTH_MARKS[mark].name.toLowerCase()}.` : `Quitada 1 marca ${HEALTH_MARKS[mark].name.toLowerCase()}.`)
+  }
+
+  const editHealthSlot = (index) => {
+    if (!healthEditable || !healthArrayValid) return
+    const next = [...sheet.salud]
+    next[index] = (next[index] + 1) % 4
+    onChange?.({ ...sheet, salud: next })
+    setPendingHealth(null)
+    setHealthFeedback('Casilla editada manualmente.')
   }
 
   const prepareDisciplineRoll = () => {
@@ -499,12 +553,6 @@ export default function CharacterSheet({
             <h4 id="quick-initiative-title">Iniciativa</h4>
             <div className="quick-roll-fields">
               <label>
-                Penalizador de heridas
-                <select value={woundPenalty} onChange={(event) => setWoundPenalty(Math.max(0, Math.min(5, Number(event.target.value) || 0)))}>
-                  {[0, 1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value ? `−${value}` : 'Ninguno'}</option>)}
-                </select>
-              </label>
-              <label>
                 Celeridad no gastada (0–{celerityLevel})
                 <input
                   type="number"
@@ -516,13 +564,20 @@ export default function CharacterSheet({
                 />
               </label>
             </div>
-            <p className="quick-roll-preview">
-              1d10 + Destreza {initiative.dexterity} + Astucia {initiative.wits} − heridas {initiative.woundPenalty} + Celeridad {initiative.unspentCelerity} = 1d10{initiative.modifier < 0 ? initiative.modifier : `+${initiative.modifier}`}
-            </p>
-            <p className="muted quick-roll-note">El tracker de Salud no determina este penalizador de forma segura; selecciónalo manualmente.</p>
+            {initiative.valid ? (
+              <>
+                <p className="quick-roll-preview">
+                  1d10 + Destreza {initiative.dexterity} + Astucia {initiative.wits} − heridas {initiative.woundPenalty} + Celeridad {initiative.unspentCelerity} = 1d10{initiative.modifier < 0 ? initiative.modifier : `+${initiative.modifier}`}
+                </p>
+                <p className="muted quick-roll-note">Penalizador derivado de {health.level}: −{initiative.woundPenalty} dados en iniciativa.</p>
+              </>
+            ) : null}
+            {initiative.incapacitated ? <p className="health-alert" role="status">Incapacitado: no se puede preparar iniciativa normal.</p> : null}
+            {initiative.healthValid && initiative.healthIrregular ? <p className="health-alert" role="status">Pista de Salud irregular: se usa la casilla marcada más profunda, sin reordenar.</p> : null}
+            {!initiative.healthValid ? <p className="health-alert" role="status">No se puede preparar iniciativa: el dato de Salud es incompatible y se conserva sin cambios; no se asumirá un penalizador.</p> : null}
             <p className="muted quick-roll-note">Los ajustes de turno son temporales y no se guardan en la ficha.</p>
             {!isOwn ? <p className="muted quick-roll-note">Ficha objetivo: {sheet.header.nombre || 'Personaje'}. La tirada se registra con la identidad de quien lanza.</p> : null}
-            <button type="button" className="ghost" onClick={prepareInitiative} disabled={rollDisabled}>Preparar iniciativa</button>
+            <button type="button" className="ghost" onClick={prepareInitiative} disabled={rollDisabled || !initiative.valid}>Preparar iniciativa</button>
           </section>
 
           <section className="quick-roll-card" aria-labelledby="quick-discipline-title">
@@ -733,28 +788,87 @@ export default function CharacterSheet({
 
       <div className="sheet-state">
         <Section title="Salud" id="sheet-salud">
+          <div className="health-legend" aria-label="Leyenda de marcas de daño">
+            {Object.entries(HEALTH_MARKS).map(([mark, detail]) => (
+              <span key={mark}><b aria-hidden="true">{detail.symbol}</b> {detail.name}</span>
+            ))}
+          </div>
+          <p className={`health-summary${health.incapacitated ? ' is-incapacitated' : ''}`} role="status" aria-live="polite">
+            {!health.valid
+              ? 'Estado actual: dato de Salud incompatible preservado; no se puede calcular.'
+              : health.incapacitated
+                ? 'Incapacitado · sin acciones normales'
+                : health.levelIndex < 0
+                  ? 'Estado actual: Sin heridas · 0 dados'
+                  : `Estado actual: ${health.level} · −${health.penalty} ${health.penalty === 1 ? 'dado' : 'dados'} (no sube dificultad; no se suman)`}
+          </p>
           <div className="health-grid">
             {HEALTH_LEVELS.map((level, i) => {
-              const state = sheet.salud[i] || 0
+              const state = healthArrayValid ? sheet.salud[i] : null
+              const effective = health.valid && health.levelIndex === i
+              const penalty = HEALTH_LEVEL_PENALTIES[i]
               return (
                 <button
                   key={level}
                   type="button"
-                  className={state > 0 ? `health is-${state}` : 'health'}
-                  disabled={readOnly}
-                  onClick={() => onChange?.({
-                    ...sheet,
-                    salud: sheet.salud.map((n, j) => (j === i ? (n + 1) % 4 : n)),
-                  })}
-                  title={`${level} (penalización ${HEALTH_PENALTIES[i]})`}
+                  className={`health${state > 0 ? ` is-${state}` : ''}${effective ? ' is-effective' : ''}${!healthArrayValid ? ' is-incompatible' : ''}`}
+                  disabled={!healthEditable || !healthArrayValid}
+                  onClick={() => editHealthSlot(i)}
+                  title={healthArrayValid ? `${level} · ${penalty === null ? 'sin acciones normales' : penalty ? `−${penalty} dados` : 'sin penalizador'}. Clic para editar esta casilla.` : `${level}: dato de Salud incompatible`}
+                  aria-label={healthArrayValid ? `${level}, ${state ? HEALTH_MARKS[state]?.name : 'vacía'}${effective ? ', estado efectivo' : ''}${penalty === null ? ', sin acciones normales' : `, penalizador ${penalty ? `menos ${penalty}` : 'ninguno'}`}` : `${level}, dato incompatible preservado`}
+                  aria-pressed={effective}
                 >
-                  <span className="health-sym">{HEALTH_SYMBOLS[state]}</span>
+                  <span className="health-point" aria-hidden="true">{healthArrayValid ? HEALTH_SYMBOLS[state] : '?'}</span>
                   <span className="health-name">{level}</span>
-                  <span className="health-pen">{HEALTH_PENALTIES[i]}</span>
+                  <span className="health-pen">{penalty === null ? 'Sin acciones' : penalty ? `−${penalty} dados` : '0 dados'}</span>
                 </button>
               )
             })}
           </div>
+          {!health.valid ? (
+            <p className="health-alert" role="alert">Dato incompatible preservado; no puedo editarlo ni aplicar operaciones de daño. No se ha convertido a una pista vacía ni se reemplazará automáticamente.</p>
+          ) : health.irregular ? (
+            <p className="health-alert" role="status">Pista irregular (huecos u orden no canónico). El estado usa la casilla más profunda marcada; la pista no se ha cambiado.</p>
+          ) : null}
+          {!healthArrayValid ? (
+            <p className="muted health-note">El control no ofrece mutaciones mientras Salud sea incompatible. Los demás campos de la ficha conservan este dato sin alterarlo.</p>
+          ) : !healthEditable ? (
+            <p className="muted health-note">{readOnly ? 'Ficha de solo lectura: no puedes editar su Salud.' : 'Salud no editable mientras la ficha está cargando o tiene un error de guardado.'}</p>
+          ) : (
+            <div className="health-controls">
+              <div className="health-damage-actions" aria-label="Recibir daño">
+                {[1, 2, 3].map((mark) => (
+                  <button key={mark} type="button" className="ghost" onClick={() => requestHealthChange('add', mark)} disabled={!healthArrayValid}>
+                    Recibir +1 {HEALTH_MARKS[mark].name.toLowerCase()}
+                  </button>
+                ))}
+              </div>
+              <div className="health-remove-action">
+                <label htmlFor="health-remove-type">Tipo de marca</label>
+                <select id="health-remove-type" value={healthRemoveType} onChange={(event) => setHealthRemoveType(event.target.value)} disabled={!healthArrayValid}>
+                  {[1, 2, 3].map((mark) => <option key={mark} value={mark}>{HEALTH_MARKS[mark].name}</option>)}
+                </select>
+                <button type="button" className="ghost" onClick={() => requestHealthChange('remove', Number(healthRemoveType))} disabled={!healthArrayValid}>
+                  Quitar 1 marca
+                </button>
+              </div>
+              <p className="muted health-note">Editar pista o quitar una marca es solo una corrección del registro: no cobra Sangre ni descanso, ni resuelve recuperación. Según el Manual, el daño normal se cura antes que el agravado.</p>
+            </div>
+          )}
+          {pendingHealth && healthEditable ? (
+            <div className="health-confirm" role="alertdialog" aria-labelledby="health-confirm-title" aria-describedby="health-confirm-description">
+              <strong id="health-confirm-title">Confirmar cambio y compactar pista</strong>
+              <p id="health-confirm-description">{pendingHealth.action === 'add'
+                ? `Recibir +1 ${HEALTH_MARKS[pendingHealth.mark].name.toLowerCase()} reorganizará la pista.`
+                : `Quitar 1 ${HEALTH_MARKS[pendingHealth.mark].name.toLowerCase()} compactará las casillas.`} Conteos antes → después: {formatHealthCounts(pendingHealth.beforeCounts)} → {formatHealthCounts(pendingHealth.afterCounts)}.</p>
+              <div className="health-confirm-actions">
+                <button type="button" className="ghost" onClick={confirmHealthChange} disabled={!healthEditable}>Confirmar</button>
+                <button type="button" className="ghost" onClick={() => setPendingHealth(null)}>Cancelar</button>
+              </div>
+            </div>
+          ) : null}
+          {healthFeedback ? <p className="health-feedback" role="status" aria-live="polite">{healthFeedback}</p> : null}
+          <p className="muted health-note">Los penalizadores afectan los dados de acciones pertinentes, no la dificultad ni todas las reservas; las tiradas reflejas (como absorción o Virtudes) están exentas. La ficha no infiere el contexto de otras tiradas.</p>
         </Section>
 
         <Section title="Fuerza de Voluntad y Reservas">

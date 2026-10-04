@@ -57,13 +57,36 @@ describe('normalizeSheet', () => {
     expect(sheet.habilidades.talentos.Alerta).toEqual({ v: 2, spec: '' })
   })
 
-  it('keeps specialty strings and clamps values', () => {
+  it('keeps specialty strings and clamps stat values without sanitizing malformed health data', () => {
     const sheet = normalizeSheet({
       atributos: { fisicos: { Fuerza: { v: 9, spec: 'Brazos Potentes' } } },
       salud: [9, 9, 9, 9, 9, 9, 9],
     })
     expect(sheet.atributos.fisicos.Fuerza).toEqual({ v: 9, spec: 'Brazos Potentes' })
-    expect(sheet.salud.every((n) => n <= 3)).toBe(true)
+    expect(sheet.salud).toEqual([9, 9, 9, 9, 9, 9, 9])
+  })
+
+  it('round-trips malformed health arrays and non-array values without replacing or truncating them', () => {
+    const malformedValues = [
+      [1, 0, 2],
+      [0, 0, 0, 0, 0, 0, 4],
+      [0, 0, 0, 0, 0, 0, 1.5],
+      null,
+      'legacy health',
+      { legacy: true },
+    ]
+    for (const salud of malformedValues) {
+      const raw = { header: { nombre: 'Keiber' }, salud }
+      const normalized = normalizeSheet(raw)
+      expect(normalized.salud).toEqual(salud)
+      expect(normalizeSheet(normalized).salud).toEqual(salud)
+    }
+  })
+
+  it('round-trips a valid seven-slot health vector and defaults only when salud is absent', () => {
+    const valid = [3, 2, 1, 0, 0, 0, 0]
+    expect(normalizeSheet({ salud: valid }).salud).toEqual(valid)
+    expect(normalizeSheet({}).salud).toEqual([0, 0, 0, 0, 0, 0, 0])
   })
 
   it('normalizes named lists', () => {
