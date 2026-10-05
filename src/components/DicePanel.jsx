@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { parseCommand, previewCommand } from '../lib/parser'
+import { submitRoll } from '../lib/rollPolicy'
 
 export default function DicePanel({ onRoll, disabled, reason, lastCommands, value, onChange }) {
   const [rolling, setRolling] = useState(false)
@@ -17,9 +18,11 @@ export default function DicePanel({ onRoll, disabled, reason, lastCommands, valu
     event?.preventDefault()
     if (!canRoll) return
     setRolling(true)
-    await onRoll(parsed)
-    onChange('')
-    window.setTimeout(() => setRolling(false), 420)
+    try {
+      await submitRoll({ onRoll, parsed, onClear: () => onChange('') })
+    } finally {
+      window.setTimeout(() => setRolling(false), 420)
+    }
   }
 
   const onKeyDown = (event) => {

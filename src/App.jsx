@@ -31,6 +31,7 @@ import { deleteNpcAfterSaving } from './lib/sheetQueue'
 import { identityForMesaAccess } from './lib/activityIdentity'
 import { canUsePersistentIdentity } from './lib/playerIdentityLinks'
 import { createQuickRollOrigin, quickRollOriginMatches, reconcileQuickRollOrigin } from './lib/quickRolls'
+import { rollBlockReason, runRollIfAllowed, shouldWaitForDm } from './lib/rollPolicy'
 
 function useIsMobile(bp = 800) {
   const [m, setM] = useState(() => {
@@ -238,28 +239,34 @@ export default function App() {
     ? party.members.find((m) => m.role === 'dm')?.player_id || archive.current?.dmId
     : ''
   const participants = activity.participants || []
-  const dmOnline = !persist.enabled || !dmId
-    || effectiveId === dmId
-    || log.remotes.some((r) => r.id === dmId)
-    || participants.some((p) => p.id === dmId)
   const muted = Boolean(persist.enabled && party.me?.muted)
-  const rollBlocked = muted
-  // Solo se bloquea la mesa si hay evidencia positiva de ausencia del Narrador
-  // (participantes del SDK no vacíos y el Narrador no está entre ellos).
-  const waitingForDm = persist.enabled && Boolean(dmId)
-    && effectiveId !== dmId
-    && participants.length > 0
-    && !dmOnline
+  const waitingForDm = shouldWaitForDm({
+    mesaPersisted: Boolean(persist.enabled && persist.mesaId),
+    dmId,
+    playerId: effectiveId,
+    participants,
+    remotes: log.remotes,
+  })
+  const rollDisabled = muted || waitingForDm
+  const rollReason = rollBlockReason({ muted, waitingForDm })
 
   const onRoll = async (parsed) => {
-    const result = executeParsed(parsed)
-    log.addEntry({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      ts: Date.now(),
-      player: charName ? { ...mesaIdentity, name: charName } : mesaIdentity,
-      command: parsed.command,
-      result,
-      line: formatResultLine(result),
+    return runRollIfAllowed({
+      muted,
+      waitingForDm,
+      onBlocked: flash,
+      onAllowed: () => {
+        const result = executeParsed(parsed)
+        log.addEntry({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          ts: Date.now(),
+          player: charName ? { ...mesaIdentity, name: charName } : mesaIdentity,
+          command: parsed.command,
+          result,
+          line: formatResultLine(result),
+        })
+        return true
+      },
     })
   }
 
@@ -484,25 +491,6 @@ export default function App() {
   const localSeat = seats.findIndex((p) => p?.id === effectiveId)
   const mySeat = localSeat >= 0 ? localSeat : null
 
-  if (waitingForDm) {
-    return (
-      <div className="waiting">
-        <div className="veil" />
-        <div className="waiting-card">
-          <h2>Esperando al Narrador</h2>
-          <IdentityStatus
-            identity={activity.identity}
-            mode={activity.status}
-            presenceStatus={activity.presenceStatus}
-          />
-          <p>La mesa solo está disponible cuando el Narrador está presente.</p>
-          <p>Volver a mesas conservará tu personaje y vínculo para que puedas regresar cuando esté el Narrador.</p>
-          <button type="button" className="ghost" onClick={() => archive.close()}>Volver a mesas</button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="app">
       <div className="veil" />
@@ -588,6 +576,12 @@ export default function App() {
           <Help />
         </div>
       </header>
+      {waitingForDm ? (
+        <div className="waiting-notice" role="status">
+          <span>El Narrador no está en la mesa: las tiradas están deshabilitadas; puedes consultar Ficha, Notas y Pizarra.</span>
+          <button type="button" className="ghost" onClick={() => { setTab('log'); archive.close() }}>Volver a mesas</button>
+        </div>
+      ) : null}
 
       <main
         ref={mainRef}
@@ -647,7 +641,7 @@ export default function App() {
           onSheetChange={sheet.update}
           onCompose={composeSheetRoll}
           diceText={diceText}
-          rollDisabled={rollBlocked}
+          rollDisabled={rollDisabled}
           npcs={npcs.npcs}
           onCreateNpc={createNpc}
           onDeleteNpc={deleteNpc}
@@ -701,10 +695,10 @@ export default function App() {
 
       <DicePanel
         onRoll={onRoll}
-        disabled={rollBlocked || Boolean(staleQuickRoll)}
+        disabled={rollDisabled || Boolean(staleQuickRoll)}
         reason={staleQuickRoll
           ? 'La ficha cambió o aún no está cargada; edita el comando o prepara otra tirada.'
-          : muted ? 'El Narrador te ha silenciado.' : ''}
+          : rollReason}
         lastCommands={lastCommands}
         value={diceText}
         onChange={onDiceTextChange}

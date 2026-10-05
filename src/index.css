@@ -102,6 +102,20 @@ code {
 
 .topbar, .app > main, .dice-panel, .toast { position: relative; z-index: 1; }
 .topbar { z-index: 10; }
+.waiting-notice {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #80642f;
+  background: #30210de8;
+  color: #f0cd83;
+  font-size: 13px;
+}
+.waiting-notice button { flex: 0 0 auto; }
 
 .topbar {
   display: flex;
