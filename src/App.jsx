@@ -496,7 +496,8 @@ export default function App() {
             presenceStatus={activity.presenceStatus}
           />
           <p>La mesa solo está disponible cuando el Narrador está presente.</p>
-          <button type="button" className="ghost" onClick={leaveTable}>Salir de la mesa</button>
+          <p>Volver a mesas conservará tu personaje y vínculo para que puedas regresar cuando esté el Narrador.</p>
+          <button type="button" className="ghost" onClick={() => archive.close()}>Volver a mesas</button>
         </div>
       </div>
     )
