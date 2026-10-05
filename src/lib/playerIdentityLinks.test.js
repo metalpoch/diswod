@@ -5,7 +5,9 @@ vi.mock('./supabase', () => ({ supabase: { functions: { invoke: mockInvoke } } }
 import {
   availableLegacyCandidates,
   canUsePersistentIdentity,
+  claimAndJoinLinkedIdentity,
   claimLegacyPlayer,
+  createIdentityClaimContextGuard,
   effectivePlayerId,
   getLegacyClaimCandidates,
   identityClaimContextMatches,
@@ -95,6 +97,69 @@ describe('player identity links', () => {
     expect(identityClaimContextMatches(context, { ...context, discordUserId: 'discord-b' })).toBe(false)
     expect(identityClaimContextMatches(context, { ...context, generation: 5 })).toBe(false)
     expect(identityClaimContextMatches(context, { ...context, contextGeneration: 3 })).toBe(false)
+  })
+
+  it('keeps a claim guard bound to its captured mesa and identity as the current context changes', () => {
+    const captured = { mesaId: 'mesa-a', discordUserId: 'discord-a', generation: 4, contextGeneration: 2 }
+    let current = { ...captured }
+    const isCurrent = createIdentityClaimContextGuard(captured, () => current)
+
+    expect(isCurrent()).toBe(true)
+    current = { ...captured, mesaId: 'mesa-b' }
+    expect(isCurrent()).toBe(false)
+    current = { ...captured, discordUserId: 'discord-b' }
+    expect(isCurrent()).toBe(false)
+  })
+
+  it('passes the confirmed mesa-scoped legacy link into the post-claim join', async () => {
+    const discordIdentity = {
+      id: 'discord-42',
+      discordId: 'discord-42',
+      source: 'discord-auth',
+      links: [{ mesaId: 'other-mesa', playerId: 'local-other' }],
+    }
+    let currentIdentity = discordIdentity
+    const join = vi.fn(async (identity) => ({
+      mesa: { id: 'mesa-a', myPlayerId: identity.links.find((link) => link.mesaId === 'mesa-a').playerId },
+    }))
+    const completion = await claimAndJoinLinkedIdentity({
+      claim: async () => 'local-percival',
+      isCurrent: () => true,
+      storeLink: (claimedPlayerId) => {
+        currentIdentity = identityWithMesaClaim(currentIdentity, 'mesa-a', claimedPlayerId)
+        return currentIdentity
+      },
+      join,
+    })
+
+    expect(completion).toMatchObject({ cancelled: false, claimedPlayerId: 'local-percival' })
+    expect(join).toHaveBeenCalledWith({
+      ...discordIdentity,
+      links: [
+        { mesaId: 'other-mesa', playerId: 'local-other' },
+        { mesaId: 'mesa-a', playerId: 'local-percival' },
+      ],
+    })
+    expect(completion.identity.id).toBe('discord-42')
+    expect(completion.joined.mesa.myPlayerId).toBe('local-percival')
+  })
+
+  it('does not link or join a stale claim response even though the claim RPC already succeeded', async () => {
+    const claim = vi.fn().mockResolvedValue('local-percival')
+    const storeLink = vi.fn()
+    const join = vi.fn()
+
+    const completion = await claimAndJoinLinkedIdentity({
+      claim,
+      isCurrent: () => false,
+      storeLink,
+      join,
+    })
+
+    expect(claim).toHaveBeenCalledOnce()
+    expect(completion).toEqual({ cancelled: true, claimedPlayerId: 'local-percival' })
+    expect(storeLink).not.toHaveBeenCalled()
+    expect(join).not.toHaveBeenCalled()
   })
 
   it('returns direct membership and legacy candidates together instead of silently preferring direct', async () => {

@@ -72,6 +72,25 @@ export function identityClaimContextMatches(context, current) {
   )
 }
 
+export function createIdentityClaimContextGuard(context, getCurrentContext) {
+  return () => identityClaimContextMatches(
+    context,
+    typeof getCurrentContext === 'function' ? getCurrentContext() : null,
+  )
+}
+
+export async function claimAndJoinLinkedIdentity({ claim, isCurrent, storeLink, join }) {
+  const claimedPlayerId = await claim()
+  if (!isCurrent()) return { cancelled: true, claimedPlayerId }
+
+  const identity = storeLink(claimedPlayerId)
+  if (!isCurrent()) return { cancelled: true, claimedPlayerId, identity }
+
+  const joined = await join(identity)
+  if (!isCurrent()) return { cancelled: true, claimedPlayerId, identity, joined }
+  return { cancelled: false, claimedPlayerId, identity, joined }
+}
+
 async function invokeIdentityFunction(accessToken, body) {
   if (!supabase || !accessToken) throw new Error('Se requiere una sesión autenticada de Discord para vincular una identidad.')
   const { data, error } = await supabase.functions.invoke('mesa-player-identity', {

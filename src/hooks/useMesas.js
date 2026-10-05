@@ -15,9 +15,10 @@ import { cleanError } from '../lib/supabase'
 import { bindMesaToPlayer, mesaForPlayer, mesaRequestIsCurrent } from '../lib/mesaContext'
 import {
   availableLegacyCandidates,
+  claimAndJoinLinkedIdentity,
   claimLegacyPlayer,
+  createIdentityClaimContextGuard,
   getLegacyClaimCandidates,
-  identityClaimContextMatches,
   identityWithMesaClaim,
   isVerifiedClaimIdentity,
 } from '../lib/playerIdentityLinks'
@@ -46,15 +47,16 @@ export function useMesas(enabled, identity, accessToken = '', replaceIdentityLin
     setPendingClaim(next)
   }
 
-  const isClaimContextCurrent = (context) => Boolean(
-    identityClaimContextMatches(context, {
+  const createClaimContextGuard = (context) => createIdentityClaimContextGuard(context, () => {
+    if (!enabled) return null
+    return {
       mesaId: claimMesaId.current,
       discordUserId: currentPlayerId.current,
       generation: claimGeneration.current,
       contextGeneration: contextGeneration.current,
-    })
-    && enabled
-  )
+    }
+  })
+  const isClaimContextCurrent = (context) => createClaimContextGuard(context)()
 
   useLayoutEffect(() => {
     if (renderedPlayerId.current !== playerId) {
@@ -368,7 +370,7 @@ export function useMesas(enabled, identity, accessToken = '', replaceIdentityLin
     if (!mesa) throw new Error('Código inválido')
     claimMesaId.current = mesa.id
     const context = { mesaId: mesa.id, discordUserId, contextGeneration: expectedContextGeneration, generation }
-    const contextIsCurrent = () => isClaimContextCurrent(context)
+    const contextIsCurrent = createClaimContextGuard(context)
     let candidates = []
     if (isVerifiedClaimIdentity(actingIdentity, accessToken)) {
       const result = await getLegacyClaimCandidates(accessToken, mesa.id, mesa.inviteCode)
@@ -407,22 +409,25 @@ export function useMesas(enabled, identity, accessToken = '', replaceIdentityLin
     if (!pending || !isClaimContextCurrent(context) || !isVerifiedClaimIdentity(actingIdentity, accessToken)) {
       throw new Error('Se requiere una cuenta de Discord verificada para reclamar esta identidad.')
     }
+    const contextIsCurrent = createClaimContextGuard(context)
     setClaimState({ ...pending, busy: true, error: '' })
     try {
-      const claimedPlayerId = await claimLegacyPlayer(
-        accessToken,
-        pending.mesa.id,
-        playerId,
-        pending.mesa.inviteCode,
-        confirmedDm,
-      )
-      if (!isClaimContextCurrent(context)) return
-      storeMesaLink(pending.mesa.id, claimedPlayerId)
-      if (!isClaimContextCurrent(context)) return
-      const joined = await joinByCode(pending.mesa.inviteCode, currentIdentity.current)
-      if (!isClaimContextCurrent(context)) return
+      const completion = await claimAndJoinLinkedIdentity({
+        claim: () => claimLegacyPlayer(
+          accessToken,
+          pending.mesa.id,
+          playerId,
+          pending.mesa.inviteCode,
+          confirmedDm,
+        ),
+        isCurrent: contextIsCurrent,
+        storeLink: (claimedPlayerId) => storeMesaLink(pending.mesa.id, claimedPlayerId),
+        join: (linkedIdentity) => joinByCode(pending.mesa.inviteCode, linkedIdentity),
+      })
+      if (completion.cancelled) return
+      const { claimedPlayerId, joined } = completion
       const rows = await refresh()
-      if (!isClaimContextCurrent(context)) return
+      if (!contextIsCurrent()) return
       const mesaRow = rows.find((row) => row.id === pending.mesa.id)
         || { ...joined.mesa, myPlayerId: claimedPlayerId }
       setClaimState(null)
@@ -434,20 +439,24 @@ export function useMesas(enabled, identity, accessToken = '', replaceIdentityLin
         listGeneration.current,
         contextIsCurrent,
       )
+      if (!contextIsCurrent()) return
     } catch (error) {
-      if (!isClaimContextCurrent(context)) return
+      if (!contextIsCurrent()) return
       if (error.code === 'CLAIM_CONFLICT') {
         try {
           const refreshed = await getLegacyClaimCandidates(accessToken, pending.mesa.id, pending.mesa.inviteCode)
-          if (!isClaimContextCurrent(context)) return
+          if (!contextIsCurrent()) return
           if (refreshed.linkedPlayerId) {
             storeMesaLink(pending.mesa.id, refreshed.linkedPlayerId)
-            if (!isClaimContextCurrent(context)) return
+            if (!contextIsCurrent()) return
             setClaimState(null)
             const rows = await refresh()
-            if (!isClaimContextCurrent(context)) return
+            if (!contextIsCurrent()) return
             const mesaRow = rows.find((row) => row.id === pending.mesa.id)
-            if (mesaRow) await openForPlayer(mesaRow, actingIdentity.id, rows, context.contextGeneration, listGeneration.current, contextIsCurrent)
+            if (mesaRow) {
+              await openForPlayer(mesaRow, context.discordUserId, rows, context.contextGeneration, listGeneration.current, contextIsCurrent)
+              if (!contextIsCurrent()) return
+            }
             return
           }
           setClaimState({ ...pending, candidates: refreshed.candidates, directMember: refreshed.directMember, error: error.message, busy: false })
