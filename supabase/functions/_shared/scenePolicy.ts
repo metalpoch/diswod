@@ -11,6 +11,7 @@ export const SCENE_TRACK_IDS = [
   'welbornworks-thevoid-326712.mp3',
   'willianbalfe-game-menu-music-box-horro-soundtrack-248291.mp3',
 ]
+export const SCENE_CONDITION_KEYS = ['frenzy', 'knockdown', 'stunned']
 
 export function resolveDmActor({ discordUserId, mesaId, directMember, legacyLink, linkedMember }) {
   if (directMember?.player_id === discordUserId && directMember.role === 'dm') {
@@ -28,7 +29,7 @@ export function resolveDmActor({ discordUserId, mesaId, directMember, legacyLink
 export function canControlScene({ mesaId, requestedMesaId, actorRole, targetMesaId, targetRole, conditionKey }) {
   if (!mesaId || requestedMesaId !== mesaId || actorRole !== 'dm') return false
   if (targetMesaId !== mesaId || targetRole === 'visitor') return false
-  if (conditionKey !== undefined && conditionKey !== 'frenzy') return false
+  if (conditionKey !== undefined && !SCENE_CONDITION_KEYS.includes(conditionKey)) return false
   return true
 }
 

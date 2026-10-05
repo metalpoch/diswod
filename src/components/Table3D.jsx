@@ -104,15 +104,19 @@ function Furniture() {
   )
 }
 
-function SeatTag({ player, seat, self }) {
+function SeatTag({ player, seat, self, frenzy, knockdown, stunned }) {
   const rest = SEATS[seat].rest
+  const classes = ['seat-tag', self && 'is-self', frenzy && 'is-frenzy', knockdown && 'is-knockdown', stunned && 'is-stunned'].filter(Boolean).join(' ')
   return (
     <Html position={[rest[0] * 1.08, 0.72, rest[2] * 1.08]} center distanceFactor={7} occlude={false} zIndexRange={[15, 10]}>
-      <div className={self ? 'seat-tag is-self' : 'seat-tag'}>
+      <div className={classes}>
         {player ? (
           <>
             <Avatar name={player.name} src={player.avatar} size={44} />
             <span>{player.name}</span>
+            {frenzy ? <span className="seat-frenzy-label">FRENESÍ/LA BESTIA</span> : null}
+            {knockdown ? <span className="seat-condition-marker is-knockdown" aria-label="Derribado/a"><span aria-hidden="true">↓</span> DERRIBADO/A</span> : null}
+            {stunned ? <span className="seat-condition-marker is-stunned" aria-label="Aturdido/a"><span aria-hidden="true">✦</span> ATURDIDO/A</span> : null}
           </>
         ) : (
           <span className="empty-seat">Vacío</span>
@@ -122,7 +126,7 @@ function SeatTag({ player, seat, self }) {
   )
 }
 
-function Scene({ seats, rolls, localSeat, showLabels, backgroundUrl }) {
+function Scene({ seats, rolls, localSeat, showLabels, backgroundUrl, frenzyPlayerIds, knockdownPlayerIds, stunnedPlayerIds }) {
   return (
     <>
       <Backdrop url={backgroundUrl} />
@@ -139,7 +143,15 @@ function Scene({ seats, rolls, localSeat, showLabels, backgroundUrl }) {
       />
       <Furniture />
       {seats.map((player, i) => (
-        <SeatTag key={i} player={player} seat={i} self={player?.self} />
+        <SeatTag
+          key={i}
+          player={player}
+          seat={i}
+          self={player?.self}
+          frenzy={Boolean(player && frenzyPlayerIds.has(player.id))}
+          knockdown={Boolean(player && knockdownPlayerIds.has(player.id))}
+          stunned={Boolean(player && stunnedPlayerIds.has(player.id))}
+        />
       ))}
       {rolls.map((pack) => (
         <group key={pack.id}>
@@ -152,7 +164,7 @@ function Scene({ seats, rolls, localSeat, showLabels, backgroundUrl }) {
   )
 }
 
-export default function Table3D({ seats, entries, localId, localSeat, showLabels, backgroundUrl, onClose }) {
+export default function Table3D({ seats, entries, localId, localSeat, showLabels, backgroundUrl, frenzyPlayerIds, knockdownPlayerIds, stunnedPlayerIds, sceneUnconfirmed, onClose }) {
   const controlsRef = useRef(null)
   const rolls = useMemo(() => {
     const latest = new Map()
@@ -179,7 +191,7 @@ export default function Table3D({ seats, entries, localId, localSeat, showLabels
         camera={{ fov: 36, position: SEATS[localSeat ?? 0].camera, near: 0.1, far: 60 }}
         gl={{ antialias: true, alpha: false }}
       >
-        <Scene seats={seats} rolls={rolls} localSeat={localSeat} showLabels={showLabels} backgroundUrl={backgroundUrl} />
+        <Scene seats={seats} rolls={rolls} localSeat={localSeat} showLabels={showLabels} backgroundUrl={backgroundUrl} frenzyPlayerIds={frenzyPlayerIds} knockdownPlayerIds={knockdownPlayerIds} stunnedPlayerIds={stunnedPlayerIds} />
         <OrbitControls
           ref={controlsRef}
           target={[0, 0.15, 0]}
@@ -197,6 +209,7 @@ export default function Table3D({ seats, entries, localId, localSeat, showLabels
         <button type="button" className="table-back" onClick={onClose} title="Volver al gamelog">← Volver</button>
       ) : null}
       {localSeat == null && localId ? <p className="table-note">Mesa llena · ves la crónica como espectador</p> : null}
+      {sceneUnconfirmed ? <p className="scene-unconfirmed" role="status">Estado de escena sin confirmar</p> : null}
       <button type="button" className="table-reset" onClick={() => controlsRef.current?.reset()} title="Restablecer la vista de la mesa">
         Restablecer
       </button>

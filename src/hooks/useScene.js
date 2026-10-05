@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  buildFrenzyUpdate,
+  buildSceneConditionUpdate,
+  SCENE_CONDITION_KEYS,
   normalizeMusicSetting,
   normalizeTrackList,
   sameSceneContext,
@@ -87,7 +88,7 @@ export function useScene(mesaId, oauthAccessToken, identityId = '', identitySour
       try {
         const [settingsResult, conditionsResult] = await Promise.all([
           supabase.from('mesa_scene_settings').select('music_mode,track_id,updated_by,updated_at').eq('mesa_id', mesaId).maybeSingle(),
-          supabase.from('mesa_player_conditions').select('mesa_id,player_id,key,active,updated_by,updated_at').eq('mesa_id', mesaId).eq('key', 'frenzy'),
+          supabase.from('mesa_player_conditions').select('mesa_id,player_id,key,active,updated_by,updated_at').eq('mesa_id', mesaId).in('key', SCENE_CONDITION_KEYS),
         ])
         if (settingsResult.error) throw settingsResult.error
         if (conditionsResult.error) throw conditionsResult.error
@@ -99,6 +100,8 @@ export function useScene(mesaId, oauthAccessToken, identityId = '', identitySour
         setErrorMesaId('')
       } catch {
         if (!active) return
+        setConditions([])
+        setReadyMesaId('')
         setErrorMesaId(mesaId)
         setError('No se pudo cargar el estado de escena. Comprueba que esté aplicada la migración y las policies de lectura.')
       }
@@ -196,10 +199,11 @@ export function useScene(mesaId, oauthAccessToken, identityId = '', identitySour
   }, [renderContext])
 
   const setMusic = useCallback((mode, trackId = null) => callControl({ action: 'music', mode, track_id: trackId }), [callControl])
-  const setFrenzy = useCallback((playerId, active) => callControl({
+  const setCondition = useCallback((playerId, key, active) => callControl({
     action: 'condition',
-    ...buildFrenzyUpdate(mesaId, playerId, active),
+    ...buildSceneConditionUpdate(mesaId, playerId, key, active),
   }), [callControl, mesaId])
+  const setFrenzy = useCallback((playerId, active) => setCondition(playerId, 'frenzy', active), [setCondition])
 
   const current = readyMesaId === mesaId
   const retry = useCallback(() => setRetryRevision((value) => value + 1), [])
@@ -212,6 +216,7 @@ export function useScene(mesaId, oauthAccessToken, identityId = '', identitySour
     token: renderContext.token,
   })
   return {
+    mesaId,
     tracks,
     music: current ? normalizeMusicSetting(musicRow, tracks) : mesaId
       ? { mode: 'unknown', trackId: null, stale: false }
@@ -224,6 +229,7 @@ export function useScene(mesaId, oauthAccessToken, identityId = '', identitySour
     controlAccessMessage,
     canControl: !controlAccessMessage,
     setMusic,
+    setCondition,
     setFrenzy,
     retry,
     retryControl,

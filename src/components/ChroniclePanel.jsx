@@ -48,7 +48,7 @@ export default function ChroniclePanel({
   scene,
   musicPlayback,
   onSceneMusic,
-  onSceneFrenzy,
+  onSceneCondition,
 }) {
   const photos = Object.fromEntries(
     (members || []).map((m) => [m.player_id, m.photo || m.avatar]),
@@ -146,6 +146,7 @@ export default function ChroniclePanel({
       {persist && tab === 'board' ? <Whiteboard mesaId={persist.mesaId} playerId={playerId} /> : null}
       {persist && tab === 'scene' ? (
         <ScenePanel
+          mesaId={scene?.mesaId || persist.mesaId}
           members={members}
           tracks={scene?.tracks || []}
           music={scene?.music || { mode: 'auto', trackId: null, stale: false }}
@@ -164,7 +165,7 @@ export default function ChroniclePanel({
           onUseAutomatic={musicPlayback?.useAutomatic}
           isDm={isDm}
           onMusic={onSceneMusic}
-          onFrenzy={onSceneFrenzy}
+          onCondition={onSceneCondition}
           backgroundUrl={backgroundUrl}
           onSetBackground={onSetBackground}
           onClearBackground={onClearBackground}

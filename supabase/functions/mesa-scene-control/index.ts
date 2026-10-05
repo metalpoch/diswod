@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       const playerId = typeof body.player_id === 'string' ? body.player_id : ''
       const key = typeof body.key === 'string' ? body.key : ''
       const active = body.active === true
-      if (!playerId || key !== 'frenzy' || typeof body.active !== 'boolean') return jsonResponse({ error: 'invalid_condition' }, 400)
+      if (!playerId || typeof body.active !== 'boolean') return jsonResponse({ error: 'invalid_condition' }, 400)
       const targetRows = await serviceQuery(queryPath('mesa_members', {
         mesa_id: `eq.${mesaId}`, player_id: `eq.${playerId}`,
       }, 'player_id,role')) as Array<{ player_id: string; role: string }>

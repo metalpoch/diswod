@@ -1,4 +1,9 @@
-export const SCENE_CONDITION_KEYS = ['frenzy']
+export const SCENE_CONDITION_KEYS = ['frenzy', 'knockdown', 'stunned']
+export const SCENE_CONDITION_LABELS = {
+  frenzy: 'Frenesí / La Bestia',
+  knockdown: 'Derribado/a',
+  stunned: 'Aturdido/a',
+}
 
 export const SCENE_CONTROL_AUTH_MESSAGE = 'Control de Escena requiere abrir la Activity dentro de Discord e iniciar sesión con la cuenta del Narrador. La web de prueba usa identidad local y no puede verificarla.'
 export const SCENE_CONTROL_LOCAL_MESSAGE = 'Estás usando la web de prueba con identidad local. Abre la Activity dentro de Discord e inicia sesión con la cuenta verificada del Narrador para usar Control de Escena.'
@@ -109,14 +114,42 @@ export function validMusicSelection(selection, allowedTrackIds) {
   return typeof selection.trackId === 'string' && allowedTrackIds.includes(selection.trackId)
 }
 
-export function frenzyForPlayer(conditions, playerId) {
-  return Boolean((conditions || []).find((condition) => (
-    condition.key === 'frenzy'
-    && condition.player_id === playerId
-    && condition.active === true
-  )))
+export function sceneConditionForPlayer(conditions, mesaId, playerId, key) {
+  if (!SCENE_CONDITION_KEYS.includes(key)) return null
+  return (Array.isArray(conditions) ? conditions : []).find((condition) => (
+    condition?.mesa_id === mesaId
+    && condition?.player_id === playerId
+    && condition?.key === key
+  )) || null
+}
+
+export function sceneConditionForPlayerIsActive(conditions, mesaId, playerId, key) {
+  return sceneConditionForPlayer(conditions, mesaId, playerId, key)?.active === true
+}
+
+export function getSceneConditionPlayerIds(conditions, key, { mesaId, ready, error } = {}) {
+  if (!SCENE_CONDITION_KEYS.includes(key) || !mesaId || !ready || error) return new Set()
+  return new Set((Array.isArray(conditions) ? conditions : [])
+    .filter((condition) => condition?.mesa_id === mesaId
+      && condition?.key === key
+      && condition.active === true
+      && condition.player_id)
+    .map((condition) => condition.player_id))
+}
+
+export function frenzyForPlayer(conditions, mesaId, playerId) {
+  return sceneConditionForPlayerIsActive(conditions, mesaId, playerId, 'frenzy')
+}
+
+export function getFrenzyPlayerIds(conditions, context = {}) {
+  return getSceneConditionPlayerIds(conditions, 'frenzy', context)
 }
 
 export function buildFrenzyUpdate(mesaId, playerId, active) {
-  return { mesa_id: mesaId, player_id: playerId, key: 'frenzy', active: active === true }
+  return buildSceneConditionUpdate(mesaId, playerId, 'frenzy', active)
+}
+
+export function buildSceneConditionUpdate(mesaId, playerId, key, active) {
+  if (!mesaId || !playerId || !SCENE_CONDITION_KEYS.includes(key)) return null
+  return { mesa_id: mesaId, player_id: playerId, key, active: active === true }
 }

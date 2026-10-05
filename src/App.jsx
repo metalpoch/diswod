@@ -31,6 +31,7 @@ import { deleteNpcAfterSaving } from './lib/sheetQueue'
 import { identityForMesaAccess } from './lib/activityIdentity'
 import { canUsePersistentIdentity } from './lib/playerIdentityLinks'
 import { createQuickRollOrigin, quickRollOriginMatches, reconcileQuickRollOrigin } from './lib/quickRolls'
+import { getSceneConditionPlayerIds, SCENE_CONDITION_LABELS } from './lib/scene'
 import { rollBlockReason, runRollIfAllowed, shouldWaitForDm } from './lib/rollPolicy'
 
 function useIsMobile(bp = 800) {
@@ -90,6 +91,20 @@ export default function App() {
   const backgroundUrl = useMesaBackground(persist.enabled ? persist.mesaId : '')
   const currentMesaId = persist.enabled ? persist.mesaId : ''
   const scene = useScene(currentMesaId, activity.oauthAccessToken, effectiveId, activity.identity?.source, activity.embedded)
+  const conditionContext = { mesaId: currentMesaId, ready: scene.ready, error: scene.error }
+  const frenzyPlayerIds = useMemo(
+    () => getSceneConditionPlayerIds(scene.conditions, 'frenzy', conditionContext),
+    [scene.conditions, currentMesaId, scene.ready, scene.error],
+  )
+  const knockdownPlayerIds = useMemo(
+    () => getSceneConditionPlayerIds(scene.conditions, 'knockdown', conditionContext),
+    [scene.conditions, currentMesaId, scene.ready, scene.error],
+  )
+  const stunnedPlayerIds = useMemo(
+    () => getSceneConditionPlayerIds(scene.conditions, 'stunned', conditionContext),
+    [scene.conditions, currentMesaId, scene.ready, scene.error],
+  )
+  const sceneUnconfirmed = Boolean(currentMesaId && (!scene.ready || scene.error))
   const rosterCurrent = isRosterReadyForMesa(party, currentMesaId)
   const npcRosterCurrent = isRosterReadyForMesa(npcs, currentMesaId)
   const memberIds = rosterCurrent ? party.members.map((member) => member.player_id) : []
@@ -661,10 +676,10 @@ export default function App() {
               // The specific error and retry action are shown in ScenePanel.
             }
           }}
-          onSceneFrenzy={async (playerId, active) => {
+          onSceneCondition={async (playerId, key, active) => {
             try {
-              const applied = await scene.setFrenzy(playerId, active)
-              if (applied) flash(active ? 'Frenesí activado' : 'Frenesí quitado')
+              const applied = await scene.setCondition(playerId, key, active)
+              if (applied) flash(`${SCENE_CONDITION_LABELS[key]} ${active ? 'activado' : 'quitado'}`)
             } catch {
               // The specific error and retry action are shown in ScenePanel.
             }
@@ -680,7 +695,19 @@ export default function App() {
             title="Arrastra para redimensionar"
           />
         ) : null}
-        <Suspense fallback={<div className="table-stage" />}>
+        <Suspense fallback={(
+          <div className="table-stage table-loading" aria-label="Cargando la mesa 3D">
+            {sceneUnconfirmed ? <p className="scene-unconfirmed" role="status">Estado de escena sin confirmar</p> : null}
+            {[
+              ['frenzy', frenzyPlayerIds],
+              ['knockdown', knockdownPlayerIds],
+              ['stunned', stunnedPlayerIds],
+            ].map(([key, ids]) => {
+              const affected = seats.filter((player) => player && ids.has(player.id))
+              return affected.length ? <p key={key} className={`scene-loading-status is-${key}`} role="status">{SCENE_CONDITION_LABELS[key]}: {affected.map((player) => player.name).join(', ')}</p> : null
+            })}
+          </div>
+        )}>
           <Table3D
             seats={seats}
             entries={log.entries}
@@ -688,6 +715,10 @@ export default function App() {
             localSeat={mySeat}
             showLabels={showDieLabels}
             backgroundUrl={backgroundUrl}
+            frenzyPlayerIds={frenzyPlayerIds}
+            knockdownPlayerIds={knockdownPlayerIds}
+            stunnedPlayerIds={stunnedPlayerIds}
+            sceneUnconfirmed={sceneUnconfirmed}
             onClose={isMobile ? () => setShowTable(false) : null}
           />
         </Suspense>

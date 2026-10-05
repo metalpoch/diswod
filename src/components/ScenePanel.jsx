@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { frenzyForPlayer } from '../lib/scene'
+import { SCENE_CONDITION_KEYS, SCENE_CONDITION_LABELS, sceneConditionForPlayer } from '../lib/scene'
 
 function updateCaption(row, members) {
   const updatedAt = row?.updated_at || row?.updatedAt
@@ -11,7 +11,7 @@ function updateCaption(row, members) {
   return `Último cambio: ${name} · ${new Intl.DateTimeFormat('es', { dateStyle: 'short', timeStyle: 'short' }).format(date)}`
 }
 
-export default function ScenePanel({ members, tracks, music, conditions, ready, error, onRetry, controlError, controlRetryable, onRetryControl, controlAccessMessage, canControl, playbackError, localFallback, onRetryMusic, onUseAutomatic, isDm, onMusic, onFrenzy, backgroundUrl, onSetBackground, onClearBackground }) {
+export default function ScenePanel({ mesaId, members, tracks, music, conditions, ready, error, onRetry, controlError, controlRetryable, onRetryControl, controlAccessMessage, canControl, playbackError, localFallback, onRetryMusic, onUseAutomatic, isDm, onMusic, onCondition, backgroundUrl, onSetBackground, onClearBackground }) {
   const selected = music.mode === 'off' ? 'off' : music.mode === 'track' ? `track:${music.trackId}` : 'auto'
   const backgroundFileRef = useRef(null)
   return (
@@ -87,12 +87,10 @@ export default function ScenePanel({ members, tracks, music, conditions, ready, 
           <h3 id="scene-conditions-title">Estado narrativo por personaje</h3>
           <span>{members.length} en roster</span>
         </div>
-        <p className="scene-help">Frenesí / La Bestia es un estado narrativo manual; no cambia tiradas ni recursos. Hambre (Sangre baja) y Fuerza de Voluntad temporal 0 son lecturas derivadas de la ficha, no activadores automáticos; aquí no se muestran valores de otras fichas.</p>
+        <p className="scene-help">Frenesí, Derribado/a y Aturdido/a son etiquetas manuales: no alteran mecánicas ni dados ni bloquean acciones. Derribado/a no es Incapacitado/a. Según la maniobra, Destreza + Atletismo puede evitar la caída; si el personaje ya cayó, levantarse consume una acción. Esta etiqueta solo es un recordatorio y no ejecuta la regla. Aturdido/a registra el umbral de daño de un solo ataque; el Narrador resuelve la pérdida del siguiente turno.</p>
         {members.length ? (
           <ul className="scene-roster">
             {members.map((member) => {
-              const active = frenzyForPlayer(conditions, member.player_id)
-              const condition = conditions.find((item) => item.key === 'frenzy' && item.player_id === member.player_id)
               const eligible = member.role !== 'visitor'
               return (
                 <li key={member.player_id} className="scene-roster-row">
@@ -100,23 +98,34 @@ export default function ScenePanel({ members, tracks, music, conditions, ready, 
                     <strong>{member.name || 'Kindred'}</strong>
                     <span>{member.role === 'dm' ? 'Narrador' : member.role === 'visitor' ? 'Visitante' : 'Jugador'}</span>
                   </div>
-                  <div className="scene-frenzy">
-                    <div className="scene-state-copy">
-                      <span className={active ? 'scene-status is-active' : 'scene-status'}>{active ? 'Frenesí / La Bestia' : 'Sin Frenesí'}</span>
-                      {updateCaption(condition, members) ? <span className="scene-update-meta">{updateCaption(condition, members)}</span> : null}
-                    </div>
-                    {canControl ? (
-                      <button
-                        type="button"
-                        className={active ? 'ghost scene-toggle is-on' : 'ghost scene-toggle'}
-                        disabled={!ready || !eligible}
-                        aria-label={`${active ? 'Quitar' : 'Activar'} Frenesí para ${member.name || 'personaje'}`}
-                        onClick={() => onFrenzy(member.player_id, !active)}
-                        title={eligible ? 'Cambiar estado narrativo' : 'No se puede asignar Frenesí a visitantes'}
-                      >
-                        {active ? 'Quitar' : 'Activar'}
-                      </button>
-                    ) : null}
+                  <div className="scene-condition-controls">
+                    {SCENE_CONDITION_KEYS.map((key) => {
+                      const condition = sceneConditionForPlayer(conditions, mesaId, member.player_id, key)
+                      const active = condition?.active === true
+                      const label = SCENE_CONDITION_LABELS[key]
+                      return (
+                        <div key={key} className={`scene-condition-control is-${key}`}>
+                          <div className="scene-state-copy">
+                            <span className={active ? 'scene-status is-active' : 'scene-status'}>
+                              {!ready ? 'Estado sin confirmar' : active ? label : `Sin ${label}`}
+                            </span>
+                            {ready && updateCaption(condition, members) ? <span className="scene-update-meta">{updateCaption(condition, members)}</span> : null}
+                          </div>
+                          {canControl ? (
+                            <button
+                              type="button"
+                              className={active ? 'ghost scene-toggle is-on' : 'ghost scene-toggle'}
+                              disabled={!ready || !eligible}
+                              aria-label={`${active ? 'Quitar' : 'Activar'} ${label} para ${member.name || 'personaje'}`}
+                              onClick={() => onCondition(member.player_id, key, !active)}
+                              title={eligible ? 'Cambiar estado narrativo' : 'No se pueden asignar estados a visitantes'}
+                            >
+                              {active ? 'Quitar' : 'Activar'}
+                            </button>
+                          ) : null}
+                        </div>
+                      )
+                    })}
                   </div>
                 </li>
               )
