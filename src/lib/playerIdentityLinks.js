@@ -79,6 +79,66 @@ export function createIdentityClaimContextGuard(context, getCurrentContext) {
   )
 }
 
+export function identityClaimSelection(candidate, context) {
+  if (!candidate?.playerId) return null
+  return {
+    candidate: { playerId: candidate.playerId, playerName: candidate.playerName, role: candidate.role },
+    context: context ? {
+      mesaId: context.mesaId,
+      discordUserId: context.discordUserId,
+      generation: context.generation,
+      contextGeneration: context.contextGeneration,
+    } : null,
+    requiresConfirmation: candidate.role === 'dm',
+  }
+}
+
+export function identityClaimRequestMatches(expectedContext, expectedCandidate, currentContext, currentCandidate) {
+  return Boolean(
+    identityClaimContextMatches(expectedContext, currentContext)
+    && expectedCandidate?.playerId
+    && expectedCandidate.playerId === currentCandidate?.playerId
+    && expectedCandidate.role === currentCandidate?.role,
+  )
+}
+
+export function identityClaimSelectionIsCurrent(selection, claim) {
+  if (!selection || !claim?.context) return false
+  const candidate = claim.candidates?.find((row) => row?.playerId === selection.candidate?.playerId)
+  return identityClaimRequestMatches(selection.context, selection.candidate, claim.context, candidate)
+}
+
+export function chooseIdentityClaimCandidate(candidate, { context, onSelectDm, onClaim }) {
+  const selection = identityClaimSelection(candidate, context)
+  if (!selection) return 'invalid'
+  if (selection.requiresConfirmation) {
+    onSelectDm(selection)
+    return 'confirmation'
+  }
+  onClaim(selection.candidate.playerId, false, selection.context)
+  return 'claimed'
+}
+
+export function cancelIdentityClaimSelection(onCancel) {
+  onCancel?.(null)
+  return null
+}
+
+export async function confirmIdentityClaim({ selection, currentClaim, isCurrent, claim }) {
+  if (
+    !identityClaimSelectionIsCurrent(selection, currentClaim)
+    || typeof isCurrent !== 'function'
+    || !isCurrent(selection.context, selection.candidate.playerId, selection.candidate.role)
+  ) return false
+  await claim(
+    selection.candidate.playerId,
+    selection.candidate.role === 'dm',
+    selection.context,
+    selection.candidate.role,
+  )
+  return true
+}
+
 export async function claimAndJoinLinkedIdentity({ claim, isCurrent, storeLink, join }) {
   const claimedPlayerId = await claim()
   if (!isCurrent()) return { cancelled: true, claimedPlayerId }
@@ -91,6 +151,77 @@ export async function claimAndJoinLinkedIdentity({ claim, isCurrent, storeLink, 
   return { cancelled: false, claimedPlayerId, identity, joined }
 }
 
+const IDENTITY_ERROR_MESSAGES = {
+  dm_confirmation_required: 'Para vincular la fila del Narrador, confirma explícitamente que eres el Narrador de esta mesa.',
+  invalid_candidate: 'Esta fila ya no está disponible para vincular. Actualiza la lista e inténtalo de nuevo.',
+  invalid_invite: 'El código de invitación ya no es válido para esta mesa.',
+  conflict: 'Otro jugador ya vinculó esta fila. Se ha actualizado la lista disponible.',
+  discord_auth_required: 'Discord debe verificar tu cuenta para reclamar una identidad de mesa.',
+  discord_verification_failed: 'No se pudo verificar tu cuenta de Discord. Vuelve a iniciar sesión e inténtalo de nuevo.',
+  invalid_request: 'No se pudo completar la solicitud de vínculo. Actualiza la lista e inténtalo de nuevo.',
+  transient: 'No se pudo verificar la identidad de mesa. Comprueba tu conexión e inténtalo de nuevo.',
+}
+
+export const CLAIM_COMPLETION_FALLBACK = 'No se pudo completar la vinculación. El vínculo puede haberse guardado; vuelve a entrar con el código o contacta Narrador.'
+
+const CLAIM_FAILURE_MESSAGES = {
+  CLAIM_DM_CONFIRMATION_REQUIRED: IDENTITY_ERROR_MESSAGES.dm_confirmation_required,
+  CLAIM_INVALID_CANDIDATE: IDENTITY_ERROR_MESSAGES.invalid_candidate,
+  CLAIM_INVALID_INVITE: IDENTITY_ERROR_MESSAGES.invalid_invite,
+  CLAIM_CONFLICT: IDENTITY_ERROR_MESSAGES.conflict,
+  CLAIM_DISCORD_AUTH_REQUIRED: IDENTITY_ERROR_MESSAGES.discord_auth_required,
+  CLAIM_DISCORD_VERIFICATION_FAILED: IDENTITY_ERROR_MESSAGES.discord_verification_failed,
+  CLAIM_INVALID_REQUEST: IDENTITY_ERROR_MESSAGES.invalid_request,
+  CLAIM_TRANSIENT: IDENTITY_ERROR_MESSAGES.transient,
+}
+
+export function identityClaimFailureMessage(error, claimPersisted = false) {
+  if (claimPersisted) return CLAIM_COMPLETION_FALLBACK
+  const code = error?.code
+  return Object.prototype.hasOwnProperty.call(CLAIM_FAILURE_MESSAGES, code)
+    ? CLAIM_FAILURE_MESSAGES[code]
+    : CLAIM_COMPLETION_FALLBACK
+}
+
+export function identityClaimFailureState(pending, error, claimPersisted = false) {
+  return {
+    ...pending,
+    error: identityClaimFailureMessage(error, claimPersisted),
+    busy: false,
+  }
+}
+
+const KNOWN_IDENTITY_ERROR_CODES = new Set([
+  'dm_confirmation_required',
+  'invalid_candidate',
+  'invalid_invite',
+  'conflict',
+  'discord_auth_required',
+  'discord_verification_failed',
+  'invalid_request',
+])
+
+async function responseErrorCode(context) {
+  if (!context || typeof context.clone !== 'function') return ''
+  try {
+    const response = context.clone()
+    if (!response || typeof response.json !== 'function') return ''
+    const body = await response.json()
+    return typeof body?.error === 'string' && KNOWN_IDENTITY_ERROR_CODES.has(body.error)
+      ? body.error
+      : ''
+  } catch {
+    return ''
+  }
+}
+
+export function identityFunctionErrorCode(status, responseCode = '') {
+  if (KNOWN_IDENTITY_ERROR_CODES.has(responseCode)) return responseCode
+  if (status === 401) return 'discord_auth_required'
+  if (status === 409) return 'conflict'
+  return 'transient'
+}
+
 async function invokeIdentityFunction(accessToken, body) {
   if (!supabase || !accessToken) throw new Error('Se requiere una sesión autenticada de Discord para vincular una identidad.')
   const { data, error } = await supabase.functions.invoke('mesa-player-identity', {
@@ -99,13 +230,11 @@ async function invokeIdentityFunction(accessToken, body) {
   })
   if (error) {
     const status = error.context?.status
-    if (status === 409 || data?.error === 'conflict') {
-      const conflict = new Error('Otro jugador ya vinculó esta fila. Se ha actualizado la lista disponible.')
-      conflict.code = 'CLAIM_CONFLICT'
-      throw conflict
-    }
-    if (status === 401) throw new Error('Discord debe verificar tu cuenta para reclamar una identidad de mesa.')
-    throw new Error(data?.message || 'No se pudo verificar la identidad de mesa.')
+    const responseCode = await responseErrorCode(error.context)
+    const code = identityFunctionErrorCode(status, responseCode)
+    const failure = new Error(IDENTITY_ERROR_MESSAGES[code])
+    failure.code = code === 'conflict' ? 'CLAIM_CONFLICT' : `CLAIM_${code.toUpperCase()}`
+    throw failure
   }
   return data
 }

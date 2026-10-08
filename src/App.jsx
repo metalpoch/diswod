@@ -495,6 +495,7 @@ export default function App() {
         <PlayerIdentityClaim
           claim={archive.pendingClaim}
           onClaim={archive.claimCandidate}
+          isClaimCurrent={archive.isClaimCandidateCurrent}
           onContinueDirect={archive.continueWithDirectMember}
           onDismiss={archive.dismissClaim}
         />

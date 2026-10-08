@@ -1,3 +1,5 @@
+import { claimRpcError } from './claimErrors.ts'
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -118,9 +120,8 @@ Deno.serve(async (req) => {
         }),
       })
       if (result?.status === 'claimed') return jsonResponse({ player_id: result.player_id })
-      if (result?.status === 'conflict') return jsonResponse({ error: 'conflict' }, 409)
-      if (result?.status === 'invalid_invite') return jsonResponse({ error: 'invalid_invite' }, 403)
-      return jsonResponse({ error: 'invalid_candidate' }, 400)
+      const failure = claimRpcError(result?.status)
+      return jsonResponse({ error: failure.error }, failure.status)
     }
     return jsonResponse({ error: 'invalid_request' }, 400)
   } catch {

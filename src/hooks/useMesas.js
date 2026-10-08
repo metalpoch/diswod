@@ -19,7 +19,10 @@ import {
   claimLegacyPlayer,
   createIdentityClaimContextGuard,
   getLegacyClaimCandidates,
+  identityClaimFailureMessage,
+  identityClaimFailureState,
   identityWithMesaClaim,
+  identityClaimRequestMatches,
   isVerifiedClaimIdentity,
 } from '../lib/playerIdentityLinks'
 
@@ -402,24 +405,54 @@ export function useMesas(enabled, identity, accessToken = '', replaceIdentityLin
     return joined
   }
 
-  const claimCandidate = async (playerId, confirmedDm = false) => {
+  const claimCandidate = async (playerId, confirmedDm = false, expectedContext, expectedRole) => {
     const pending = pendingClaimRef.current
     const context = pending?.context
     const actingIdentity = currentIdentity.current
-    if (!pending || !isClaimContextCurrent(context) || !isVerifiedClaimIdentity(actingIdentity, accessToken)) {
+    const candidate = pending?.candidates.find((row) => row.playerId === playerId)
+    if (
+      !pending
+      || pending.mesa.id !== expectedContext?.mesaId
+      || !identityClaimRequestMatches(expectedContext, { playerId, role: expectedRole }, context, candidate)
+      || !isClaimContextCurrent(context)
+      || !isVerifiedClaimIdentity(actingIdentity, accessToken)
+    ) {
       throw new Error('Se requiere una cuenta de Discord verificada para reclamar esta identidad.')
     }
+    if (!candidate || (candidate.role === 'dm' && !confirmedDm)) {
+      throw new Error('La fila seleccionada ya no está disponible o requiere confirmación explícita.')
+    }
     const contextIsCurrent = createClaimContextGuard(context)
+    let claimPersisted = false
     setClaimState({ ...pending, busy: true, error: '' })
     try {
       const completion = await claimAndJoinLinkedIdentity({
-        claim: () => claimLegacyPlayer(
-          accessToken,
-          pending.mesa.id,
-          playerId,
-          pending.mesa.inviteCode,
-          confirmedDm,
-        ),
+        claim: async () => {
+          const currentPending = pendingClaimRef.current
+          const currentCandidate = currentPending?.candidates.find((row) => row.playerId === playerId)
+          if (
+            !identityClaimRequestMatches(
+              expectedContext,
+              { playerId, role: expectedRole },
+              currentPending?.context,
+              currentCandidate,
+            )
+            || currentPending?.mesa?.id !== expectedContext?.mesaId
+            || !isClaimContextCurrent(expectedContext)
+            || !isVerifiedClaimIdentity(currentIdentity.current, accessToken)
+          ) {
+            throw new Error('La selección ya no está vigente. Elige una fila disponible de nuevo.')
+          }
+          const claimedPlayerId = await claimLegacyPlayer(
+            accessToken,
+            expectedContext.mesaId,
+            playerId,
+            pending.mesa.inviteCode,
+            confirmedDm,
+          )
+          claimPersisted = true
+          return claimedPlayerId
+        },
         isCurrent: contextIsCurrent,
         storeLink: (claimedPlayerId) => storeMesaLink(pending.mesa.id, claimedPlayerId),
         join: (linkedIdentity) => joinByCode(pending.mesa.inviteCode, linkedIdentity),
@@ -442,7 +475,7 @@ export function useMesas(enabled, identity, accessToken = '', replaceIdentityLin
       if (!contextIsCurrent()) return
     } catch (error) {
       if (!contextIsCurrent()) return
-      if (error.code === 'CLAIM_CONFLICT') {
+      if (!claimPersisted && error?.code === 'CLAIM_CONFLICT') {
         try {
           const refreshed = await getLegacyClaimCandidates(accessToken, pending.mesa.id, pending.mesa.inviteCode)
           if (!contextIsCurrent()) return
@@ -459,15 +492,40 @@ export function useMesas(enabled, identity, accessToken = '', replaceIdentityLin
             }
             return
           }
-          setClaimState({ ...pending, candidates: refreshed.candidates, directMember: refreshed.directMember, error: error.message, busy: false })
+          setClaimState({
+            ...pending,
+            candidates: refreshed.candidates,
+            directMember: refreshed.directMember,
+            error: identityClaimFailureMessage(error),
+            busy: false,
+          })
         } catch {
-          if (isClaimContextCurrent(context)) setClaimState({ ...pending, candidates: [], error: error.message, busy: false })
+          if (isClaimContextCurrent(context)) {
+            setClaimState({
+              ...pending,
+              candidates: [],
+              error: identityClaimFailureMessage(error),
+              busy: false,
+            })
+          }
         }
       } else {
-        setClaimState({ ...pending, error: error.message || 'No se pudo reclamar la identidad.', busy: false })
+        setClaimState(identityClaimFailureState(pending, error, claimPersisted))
       }
       throw error
     }
+  }
+
+  const isClaimCandidateCurrent = (playerId, role, expectedContext) => {
+    const pending = pendingClaimRef.current
+    const candidate = pending?.candidates.find((row) => row.playerId === playerId)
+    return Boolean(
+      pending
+      && candidate
+      && identityClaimRequestMatches(expectedContext, { playerId, role }, pending.context, candidate)
+      && isClaimContextCurrent(pending.context)
+      && isVerifiedClaimIdentity(currentIdentity.current, accessToken),
+    )
   }
 
   const continueWithDirectMember = async () => {
@@ -530,6 +588,7 @@ export function useMesas(enabled, identity, accessToken = '', replaceIdentityLin
     pendingCharName,
     pendingClaim,
     claimCandidate,
+    isClaimCandidateCurrent,
     continueWithDirectMember,
     dismissClaim: () => {
       claimGeneration.current += 1
