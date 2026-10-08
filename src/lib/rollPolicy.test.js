@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { rollBlockReason, runRollIfAllowed, shouldWaitForDm, submitRoll } from './rollPolicy'
+import { rollBlockReason, rollsDisabled, runRollIfAllowed, shouldWaitForDm, submitRoll } from './rollPolicy'
 
 const baseWaitContext = {
   mesaPersisted: true,
@@ -7,6 +7,7 @@ const baseWaitContext = {
   playerId: 'player-1',
   participants: [{ id: 'player-1' }],
   remotes: [],
+  dmPresence: 'offline',
 }
 
 describe('shouldWaitForDm', () => {
@@ -26,14 +27,28 @@ describe('shouldWaitForDm', () => {
   })
 
   it('is lenient when the participant roster is empty or unknown', () => {
-    expect(shouldWaitForDm({ ...baseWaitContext, participants: [] })).toBe(false)
-    expect(shouldWaitForDm({ ...baseWaitContext, participants: null })).toBe(false)
+    expect(shouldWaitForDm({ ...baseWaitContext, participants: [], dmPresence: 'offline' })).toBe(false)
+    expect(shouldWaitForDm({ ...baseWaitContext, participants: null, dmPresence: 'offline' })).toBe(false)
   })
 
   it('waits only when absence is positively confirmed for a persisted mesa', () => {
     expect(shouldWaitForDm(baseWaitContext)).toBe(true)
     expect(shouldWaitForDm({ ...baseWaitContext, mesaPersisted: false })).toBe(false)
     expect(shouldWaitForDm({ ...baseWaitContext, dmId: '' })).toBe(false)
+  })
+
+  it('waits only for confirmed offline presence and stays lenient while unlinked or unknown', () => {
+    expect(shouldWaitForDm({ ...baseWaitContext, dmPresence: 'online' })).toBe(false)
+    expect(shouldWaitForDm({ ...baseWaitContext, dmPresence: 'unknown' })).toBe(false)
+    expect(shouldWaitForDm({ ...baseWaitContext, dmPresence: 'unlinked' })).toBe(false)
+    expect(shouldWaitForDm({ ...baseWaitContext, participants: [], dmPresence: 'offline' })).toBe(false)
+    expect(shouldWaitForDm({ ...baseWaitContext, participants: [], dmPresence: 'unlinked' })).toBe(false)
+    expect(shouldWaitForDm({ ...baseWaitContext, mesaPersisted: false, dmPresence: 'offline' })).toBe(false)
+    expect(shouldWaitForDm({ ...baseWaitContext, playerId: 'dm-1', dmPresence: 'offline' })).toBe(false)
+    expect(rollsDisabled({ muted: false, waitingForDm: shouldWaitForDm({ ...baseWaitContext, dmPresence: 'unlinked' }) })).toBe(false)
+    expect(rollsDisabled({ muted: false, waitingForDm: shouldWaitForDm({ ...baseWaitContext, dmPresence: 'unknown' }) })).toBe(false)
+    expect(rollsDisabled({ muted: false, waitingForDm: shouldWaitForDm(baseWaitContext) })).toBe(true)
+    expect(rollsDisabled({ muted: true, waitingForDm: false })).toBe(true)
   })
 })
 
@@ -60,6 +75,17 @@ describe('roll blocking', () => {
     expect(result).toBe(false)
     expect(executeParsed).not.toHaveBeenCalled()
     expect(addEntry).not.toHaveBeenCalled()
+  })
+
+  it('allows rolls when presence is unlinked instead of showing an absence toast', () => {
+    const onBlocked = vi.fn()
+    expect(runRollIfAllowed({
+      muted: false,
+      waitingForDm: false,
+      onBlocked,
+      onAllowed: vi.fn(() => true),
+    })).toBe(true)
+    expect(onBlocked).not.toHaveBeenCalled()
   })
 
   it('preserves the command when the roll handler rejects the submission', async () => {

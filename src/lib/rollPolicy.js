@@ -1,12 +1,17 @@
-export function shouldWaitForDm({ mesaPersisted, dmId, playerId, participants, remotes }) {
+export function shouldWaitForDm({ mesaPersisted, dmId, playerId, participants, remotes, dmPresence = 'unknown' }) {
   const participantList = Array.isArray(participants) ? participants : []
   const remoteList = Array.isArray(remotes) ? remotes : []
-  return Boolean(mesaPersisted)
-    && Boolean(dmId)
-    && playerId !== dmId
-    && participantList.length > 0
-    && !participantList.some((participant) => participant?.id === dmId)
-    && !remoteList.some((remote) => remote?.id === dmId)
+  const hasPositiveSignal = Boolean(dmId) && (
+    playerId === dmId
+    || participantList.some((participant) => participant?.id === dmId)
+    || remoteList.some((remote) => remote?.id === dmId)
+  )
+  if (!mesaPersisted || !dmId || hasPositiveSignal) return false
+  return dmPresence === 'offline' && participantList.length > 0
+}
+
+export function rollsDisabled({ muted, waitingForDm }) {
+  return Boolean(muted || waitingForDm)
 }
 
 export function rollBlockReason({ muted, waitingForDm }) {

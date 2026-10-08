@@ -29,10 +29,11 @@ import { copyText } from './lib/clipboard'
 import { canEditSheetTarget, canViewSheetTarget, isRosterReadyForMesa } from './lib/sheetAccess'
 import { deleteNpcAfterSaving } from './lib/sheetQueue'
 import { identityForMesaAccess } from './lib/activityIdentity'
-import { canUsePersistentIdentity } from './lib/playerIdentityLinks'
+import { canUsePersistentIdentity, getDmPresence } from './lib/playerIdentityLinks'
 import { createQuickRollOrigin, quickRollOriginMatches, reconcileQuickRollOrigin } from './lib/quickRolls'
 import { getSceneConditionPlayerIds, SCENE_CONDITION_LABELS } from './lib/scene'
-import { rollBlockReason, runRollIfAllowed, shouldWaitForDm } from './lib/rollPolicy'
+import { rollBlockReason, rollsDisabled, runRollIfAllowed, shouldWaitForDm } from './lib/rollPolicy'
+import { createDmPresencePoller, createDmPresenceRequestGuard, dmPresenceContext, dmPresenceContextsMatch, dmPresenceNotice, dmPresencePositiveSignal, dmPresenceRosterKey } from './lib/dmPresence'
 
 function useIsMobile(bp = 800) {
   const [m, setM] = useState(() => {
@@ -77,6 +78,9 @@ export default function App() {
   const mainRef = useRef(null)
   const [diceText, setDiceText] = useState('')
   const quickRollOriginRef = useRef(null)
+  const dmPresenceGenerationRef = useRef(0)
+  const dmPresenceContextRef = useRef(null)
+  const [dmPresenceResult, setDmPresenceResult] = useState({ status: 'unknown', context: null })
 
   const persist = persistOn && archive.current && !skipSave
     ? { enabled: true, mesaId: archive.current.id, sessionId: archive.current.currentSessionId }
@@ -90,6 +94,51 @@ export default function App() {
   const npcs = useNpcs(persist.enabled ? persist.mesaId : '')
   const backgroundUrl = useMesaBackground(persist.enabled ? persist.mesaId : '')
   const currentMesaId = persist.enabled ? persist.mesaId : ''
+  const participantKey = dmPresenceRosterKey(activity.participants)
+  dmPresenceContextRef.current = dmPresenceContext({
+    mesaId: currentMesaId,
+    playerId: effectiveId,
+    participants: activity.participants,
+    generation: dmPresenceGenerationRef.current,
+    oauthAccessToken: activity.oauthAccessToken,
+  })
+  const dmPresence = dmPresenceContextsMatch(dmPresenceResult.context, dmPresenceContextRef.current)
+    ? dmPresenceResult.status
+    : 'unknown'
+
+  useEffect(() => {
+    const generation = ++dmPresenceGenerationRef.current
+    const context = dmPresenceContext({
+      mesaId: currentMesaId,
+      playerId: effectiveId,
+      participants: activity.participants,
+      generation,
+      oauthAccessToken: activity.oauthAccessToken,
+    })
+    dmPresenceContextRef.current = context
+    const isCurrent = createDmPresenceRequestGuard(context, () => dmPresenceContextRef.current)
+    setDmPresenceResult({ status: 'unknown', context })
+    const roster = activity.participants || []
+    if (!currentMesaId || !activity.oauthAccessToken || activity.presenceStatus !== 'available' || !roster.length) {
+      return () => {
+        if (dmPresenceGenerationRef.current === generation) dmPresenceGenerationRef.current += 1
+      }
+    }
+
+    const poller = createDmPresencePoller({
+      request: () => getDmPresence(activity.oauthAccessToken, currentMesaId, roster),
+      isCurrent,
+      onResult: (status) => setDmPresenceResult({ status, context }),
+      timeoutMs: 5000,
+    })
+    poller.poll()
+    const timer = window.setInterval(() => poller.poll(), 3000)
+    return () => {
+      window.clearInterval(timer)
+      poller.cancel()
+      if (dmPresenceGenerationRef.current === generation) dmPresenceGenerationRef.current += 1
+    }
+  }, [currentMesaId, effectiveId, activity.oauthAccessToken, activity.presenceStatus, participantKey])
   const scene = useScene(currentMesaId, activity.oauthAccessToken, effectiveId, activity.identity?.source, activity.embedded)
   const conditionContext = { mesaId: currentMesaId, ready: scene.ready, error: scene.error }
   const frenzyPlayerIds = useMemo(
@@ -255,15 +304,24 @@ export default function App() {
     : ''
   const participants = activity.participants || []
   const muted = Boolean(persist.enabled && party.me?.muted)
+  const dmPresencePositive = dmPresencePositiveSignal({ dmId, playerId: effectiveId, participants, remotes: log.remotes })
   const waitingForDm = shouldWaitForDm({
     mesaPersisted: Boolean(persist.enabled && persist.mesaId),
     dmId,
     playerId: effectiveId,
     participants,
     remotes: log.remotes,
+    dmPresence,
   })
-  const rollDisabled = muted || waitingForDm
+  const rollDisabled = rollsDisabled({ muted, waitingForDm })
   const rollReason = rollBlockReason({ muted, waitingForDm })
+  const dmPresenceStatusNotice = dmPresenceNotice({
+    status: dmPresence,
+    mesaPersisted: Boolean(persist.enabled && persist.mesaId),
+    hasRoster: participants.length > 0,
+    isDm: Boolean(persist.enabled && (party.isDm || effectiveId === dmId)),
+    positiveSignal: dmPresencePositive,
+  })
 
   const onRoll = async (parsed) => {
     return runRollIfAllowed({
@@ -597,6 +655,9 @@ export default function App() {
           <span>El Narrador no está en la mesa: las tiradas están deshabilitadas; puedes consultar Ficha, Notas y Pizarra.</span>
           <button type="button" className="ghost" onClick={() => { setTab('log'); archive.close() }}>Volver a mesas</button>
         </div>
+      ) : null}
+      {!waitingForDm && dmPresenceStatusNotice ? (
+        <div className="waiting-notice" role="status"><span>{dmPresenceStatusNotice}</span></div>
       ) : null}
 
       <main

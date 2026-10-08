@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { DM_PRESENCE_MAX_PARTICIPANTS } from './dmPresence'
 
 export function normalizeIdentityLinks(rows) {
   return (Array.isArray(rows) ? rows : [])
@@ -268,4 +269,28 @@ export async function claimLegacyPlayer(accessToken, mesaId, playerId, inviteCod
     confirmed_dm: confirmedDm,
   })
   return data?.player_id || playerId
+}
+
+const DISCORD_ID_PATTERN = /^\d{17,20}$/
+const DM_PRESENCE_STATUSES = new Set(['online', 'offline', 'unlinked', 'unknown'])
+
+export async function getDmPresence(accessToken, mesaId, participants) {
+  if (!Array.isArray(participants) || participants.length > DM_PRESENCE_MAX_PARTICIPANTS) return 'unknown'
+  const participantIds = []
+  for (const participant of participants) {
+    const id = participant?.id
+    if (typeof id !== 'string' || id.length > 20 || !DISCORD_ID_PATTERN.test(id)) return 'unknown'
+    if (!participantIds.includes(id)) participantIds.push(id)
+  }
+  if (!supabase || !accessToken || !mesaId || participantIds.length === 0) return 'unknown'
+  try {
+    const { data, error } = await supabase.functions.invoke('mesa-player-identity', {
+      body: { action: 'dm_presence', mesa_id: mesaId, participant_ids: participantIds },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (error || !DM_PRESENCE_STATUSES.has(data?.status)) return 'unknown'
+    return data.status
+  } catch {
+    return 'unknown'
+  }
 }

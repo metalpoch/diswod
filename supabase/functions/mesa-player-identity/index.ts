@@ -1,4 +1,5 @@
 import { claimRpcError } from './claimErrors.ts'
+import { PresenceRequesterDenied, resolveDmPresence, validPresenceRequest } from './presence.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -56,8 +57,25 @@ Deno.serve(async (req) => {
   } catch {
     return jsonResponse({ error: 'invalid_request' }, 400)
   }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return jsonResponse({ error: 'invalid_request' }, 400)
 
   try {
+    if (body.action === 'dm_presence') {
+      if (!validPresenceRequest(body)) return jsonResponse({ error: 'invalid_request' }, 400)
+      try {
+        const result = await resolveDmPresence({
+          mesaId: body.mesa_id as string,
+          requesterDiscordId: discordUserId,
+          participantIds: body.participant_ids as string[],
+          query: serviceQuery,
+        })
+        return jsonResponse(result)
+      } catch (error) {
+        if (error instanceof PresenceRequesterDenied) return jsonResponse({ error: 'not_a_mesa_member' }, 403)
+        throw error
+      }
+    }
+
     if (body.action === 'resolve') {
       const links = await serviceQuery(
         `mesa_player_identity_links?discord_user_id=eq.${encodeURIComponent(discordUserId)}&select=mesa_id,player_id`,

@@ -13,6 +13,7 @@ import {
   createIdentityClaimContextGuard,
   effectivePlayerId,
   getLegacyClaimCandidates,
+  getDmPresence,
   identityClaimContextMatches,
   identityClaimFailureMessage,
   identityClaimFailureState,
@@ -203,6 +204,39 @@ describe('player identity links', () => {
       headers: { Authorization: 'Bearer memory-only-oauth-token' },
     })
     expect(JSON.stringify(mockInvoke.mock.calls)).not.toContain('discord_user_id')
+  })
+
+  it('requests DM presence with only the mesa and bounded exact participant IDs', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: { status: 'online' }, error: null })
+    await expect(getDmPresence('oauth-token', 'mesa-uuid', [
+      { id: '100000000000000001', username: 'private-name', avatar: 'private-avatar' },
+      { id: '100000000000000001' },
+    ])).resolves.toBe('online')
+
+    expect(mockInvoke).toHaveBeenCalledWith('mesa-player-identity', {
+      body: {
+        action: 'dm_presence',
+        mesa_id: 'mesa-uuid',
+        participant_ids: ['100000000000000001'],
+      },
+      headers: { Authorization: 'Bearer oauth-token' },
+    })
+    expect(JSON.stringify(mockInvoke.mock.calls[0])).not.toContain('private-name')
+    expect(JSON.stringify(mockInvoke.mock.calls[0])).not.toContain('discord_user_id')
+  })
+
+  it('treats errors and invalid responses as unknown without making empty-roster requests', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: { status: 'someone' }, error: null })
+    await expect(getDmPresence('oauth-token', 'mesa-uuid', [{ id: '100000000000000001' }])).resolves.toBe('unknown')
+    await expect(getDmPresence('oauth-token', 'mesa-uuid', [])).resolves.toBe('unknown')
+    expect(mockInvoke).toHaveBeenCalledOnce()
+  })
+
+  it('returns unknown instead of truncating oversized or malformed rosters', async () => {
+    await expect(getDmPresence('oauth-token', 'mesa-uuid', Array(65).fill({ id: '100000000000000001' })))
+      .resolves.toBe('unknown')
+    await expect(getDmPresence('oauth-token', 'mesa-uuid', [{ id: 'invalid' }])).resolves.toBe('unknown')
+    expect(mockInvoke).not.toHaveBeenCalled()
   })
 
   it('opens DM confirmation without claiming and cancellation only closes that step', () => {
